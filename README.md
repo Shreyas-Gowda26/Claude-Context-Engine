@@ -10,6 +10,10 @@
 
 A local context indexing system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that indexes your codebase, compresses context, and serves it via MCP — so Claude starts every session already knowing your project.
 
+<p align="center">
+  <img src="docs/demo.svg" alt="Claude Context Engine Demo" width="800">
+</p>
+
 ## The Problem
 
 Every time you start a new Claude Code session, Claude has no memory of your project. It re-reads files, re-discovers architecture, and burns tokens understanding code it has seen before. On large codebases, this startup cost adds up fast.
@@ -84,18 +88,19 @@ brew install cmake
 sudo apt install cmake
 ```
 
-### Install
+### Install from PyPI (recommended)
 
 ```bash
-# Clone the repository
+pip install claude-context-engine
+```
+
+### Install from Source
+
+```bash
 git clone git@github.com:fazleelahhee/Claude-Context-Engine.git
 cd Claude-Context-Engine
-
-# Create a virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# Install in editable mode
 pip install -e .
 
 # With dev dependencies (for running tests)

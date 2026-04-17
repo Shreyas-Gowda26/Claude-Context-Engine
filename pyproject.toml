@@ -35,6 +35,11 @@ dependencies = [
     "aiohttp>=3.9",
 ]
 
+[project.urls]
+Homepage = "https://github.com/fazleelahhee/Claude-Context-Engine"
+Repository = "https://github.com/fazleelahhee/Claude-Context-Engine"
+Issues = "https://github.com/fazleelahhee/Claude-Context-Engine/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
