@@ -42,7 +42,15 @@ class Embedder:
                 model_name,
             )
         try:
-            self._model = SentenceTransformer(model_name)
+            # Suppress the harmless "UNEXPECTED key: embeddings.position_ids" warning
+            # that older BERT checkpoints trigger in newer transformers versions.
+            import transformers.modeling_utils as _mu
+            _prior = _mu.logger.level
+            _mu.logger.setLevel(logging.ERROR)
+            try:
+                self._model = SentenceTransformer(model_name)
+            finally:
+                _mu.logger.setLevel(_prior)
         except Exception as exc:
             # Surface a helpful error instead of hanging or crashing deep inside
             # the sentence-transformers stack.
