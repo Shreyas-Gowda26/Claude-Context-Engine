@@ -24,6 +24,9 @@ class Config:
     compression_model: str = "phi3:mini"
     remote_compression_model: str = "llama3:8b"
 
+    # Output compression
+    output_compression: str = "standard"  # off | lite | standard | max
+
     # Embedding
     embedding_model: str = "all-MiniLM-L6-v2"
 
@@ -78,6 +81,7 @@ def _apply_dict_to_config(config: Config, data: dict) -> None:
         ("compression", "level"): "compression_level",
         ("compression", "model"): "compression_model",
         ("compression", "remote_model"): "remote_compression_model",
+        ("compression", "output"): "output_compression",
         ("embedding", "model"): "embedding_model",
         ("retrieval", "confidence_threshold"): "retrieval_confidence_threshold",
         ("retrieval", "top_k"): "retrieval_top_k",

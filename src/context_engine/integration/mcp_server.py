@@ -2,11 +2,14 @@
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
+from context_engine.compression.output_rules import get_output_rules, get_level_description, LEVELS
+
 
 class ContextEngineMCP:
     TOOL_NAMES = [
         "context_search", "expand_chunk", "related_context",
         "session_recall", "index_status", "reindex",
+        "set_output_compression",
     ]
 
     def __init__(self, retriever, backend, compressor, embedder, config) -> None:
@@ -15,8 +18,10 @@ class ContextEngineMCP:
         self._compressor = compressor
         self._embedder = embedder
         self._config = config
+        self._output_level = config.output_compression
         self._server = Server("claude-context-engine")
         self._register_tools()
+        self._register_prompts()
 
     def get_tool_names(self) -> list[str]:
         return list(self.TOOL_NAMES)
@@ -77,6 +82,21 @@ class ContextEngineMCP:
                         "properties": {"path": {"type": "string"}},
                     },
                 ),
+                Tool(
+                    name="set_output_compression",
+                    description="Set output compression level to reduce response token cost. Levels: off, lite, standard, max",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "level": {
+                                "type": "string",
+                                "enum": list(LEVELS),
+                                "description": "off=normal, lite=no filler, standard=fragments ~65% savings, max=telegraphic ~75% savings",
+                            },
+                        },
+                        "required": ["level"],
+                    },
+                ),
             ]
 
         @self._server.call_tool()
@@ -93,6 +113,8 @@ class ContextEngineMCP:
                 return await self._handle_index_status()
             elif name == "reindex":
                 return await self._handle_reindex(arguments)
+            elif name == "set_output_compression":
+                return self._handle_set_output_compression(arguments)
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
     async def _handle_context_search(self, args):
@@ -103,12 +125,12 @@ class ContextEngineMCP:
             results.append(
                 f"[{chunk.file_path}:{chunk.start_line}] (confidence: {chunk.confidence_score:.2f})\n{text}"
             )
-        return [
-            TextContent(
-                type="text",
-                text="\n\n---\n\n".join(results) if results else "No results found.",
-            )
-        ]
+        body = "\n\n---\n\n".join(results) if results else "No results found."
+        # Append output compression reminder if active
+        rules = get_output_rules(self._output_level)
+        if rules:
+            body += f"\n\n---\n[Respond using {self._output_level} output compression]"
+        return [TextContent(type="text", text=body)]
 
     async def _handle_expand_chunk(self, args):
         chunk = await self._backend.get_chunk_by_id(args["chunk_id"])
@@ -142,13 +164,67 @@ class ContextEngineMCP:
         ]
 
     async def _handle_index_status(self):
-        return [TextContent(type="text", text="Index status: operational")]
+        rules = get_output_rules(self._output_level)
+        status_parts = [
+            f"Index status: operational",
+            f"Output compression: {self._output_level} — {get_level_description(self._output_level)}",
+        ]
+        return [TextContent(type="text", text="\n".join(status_parts))]
 
     async def _handle_reindex(self, args):
         path = args.get("path")
         if path:
             return [TextContent(type="text", text=f"Re-indexing triggered for: {path}")]
         return [TextContent(type="text", text="Full re-index triggered.")]
+
+    def _handle_set_output_compression(self, args):
+        level = args.get("level", "standard")
+        if level not in LEVELS:
+            return [TextContent(type="text", text=f"Invalid level: {level}. Use: {', '.join(LEVELS)}")]
+        self._output_level = level
+        desc = get_level_description(level)
+        rules = get_output_rules(level)
+        if rules:
+            return [TextContent(type="text", text=f"Output compression set to: {level}\n{desc}\n\n{rules}")]
+        return [TextContent(type="text", text=f"Output compression disabled. Claude will respond normally.")]
+
+    def _register_prompts(self):
+        """Register MCP prompts that inject output compression rules at session start."""
+        from mcp.types import Prompt, PromptMessage, PromptArgument
+
+        @self._server.list_prompts()
+        async def list_prompts():
+            return [
+                Prompt(
+                    name="context-engine-init",
+                    description="Initialize context engine with output compression rules",
+                    arguments=[
+                        PromptArgument(
+                            name="output_level",
+                            description="Output compression level: off, lite, standard, max",
+                            required=False,
+                        ),
+                    ],
+                ),
+            ]
+
+        @self._server.get_prompt()
+        async def get_prompt(name: str, arguments: dict | None = None):
+            if name != "context-engine-init":
+                return None
+            level = (arguments or {}).get("output_level", self._output_level)
+            rules = get_output_rules(level)
+            content = "Context engine active."
+            if rules:
+                content += f"\n\n{rules}"
+            return {
+                "messages": [
+                    PromptMessage(
+                        role="user",
+                        content=TextContent(type="text", text=content),
+                    ),
+                ],
+            }
 
     async def run_stdio(self):
         from mcp.server.stdio import stdio_server

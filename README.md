@@ -41,10 +41,17 @@ Your Code
 
 ## Key Benefits
 
-### Save Context Window Tokens
+### Save Input Tokens (what Claude reads)
 - Compressed summaries replace full file reads — Claude gets the same understanding in 60-80% fewer tokens
 - Confidence scoring surfaces only the most relevant chunks, avoiding noise
 - Progressive disclosure: Claude gets summaries first, expands to full code only when needed
+
+### Save Output Tokens (what Claude writes) — Built-in Output Compression
+- Integrated output compression reduces Claude's response verbosity by 65-75%
+- Output tokens cost **5x more** than input tokens — this is where the biggest cost savings are
+- Four levels: `off`, `lite`, `standard`, `max` — toggle mid-session via MCP tool
+- Code blocks, file paths, commands, and error messages are never compressed
+- Security warnings always use full clarity regardless of compression level
 
 ### Faster Session Startup
 - No more "let me read through the codebase" at the start of every conversation
@@ -148,6 +155,7 @@ Once connected, Claude Code automatically has access to these tools:
 | `session_recall` | Recall past decisions and discussions |
 | `index_status` | Check when the index was last updated |
 | `reindex` | Trigger re-indexing of a file or the entire project |
+| `set_output_compression` | Change output compression level mid-session (off/lite/standard/max) |
 
 ## Configuration
 
@@ -162,7 +170,8 @@ remote:
   fallback_to_local: true
 
 compression:
-  level: standard        # minimal | standard | full
+  level: standard        # minimal | standard | full (input compression)
+  output: standard       # off | lite | standard | max (output compression)
   model: phi3:mini       # Ollama model for compression
 
 embedding:
@@ -321,6 +330,33 @@ Configure with `compression.level` in your config:
 | **standard** | 300 chars | LLM when available, fallback to truncation | Most projects (default) |
 | **full** | 800 chars | LLM compression; high-confidence chunks kept uncompressed | Large projects where detail matters |
 
+### Output Compression (Built-in)
+
+Output tokens cost **5x more** than input tokens on Claude. The engine includes built-in output compression that instructs Claude to respond concisely — no extra plugins needed.
+
+| Level | Style | Savings | Example |
+|-------|-------|---------|---------|
+| **off** | Normal Claude responses | 0% | "I'll fix the bug in the authentication module. The issue is that the session token validation is not checking for expiration..." |
+| **lite** | No filler, hedging, or pleasantries | ~30% | "Bug is in auth module. Session token validation doesn't check expiration..." |
+| **standard** | Fragments, short synonyms, no articles | ~65% | "Bug in auth module. Session token validation missing expiration check..." |
+| **max** | Telegraphic with abbreviations and symbols | ~75% | "auth bug → session token no expiry check..." |
+
+Configure in `config.yaml`:
+```yaml
+compression:
+  output: standard   # off | lite | standard | max
+```
+
+Or toggle mid-session — just ask Claude to call `set_output_compression`:
+```
+"Switch to max output compression"
+"Turn off output compression"
+```
+
+Safety exceptions:
+- Code blocks, file paths, commands, URLs, and error messages are **never** compressed
+- Security warnings and destructive action confirmations always use **full clarity**
+
 ### Confidence-Based Retrieval
 
 Not all chunks are equal. The engine scores every chunk using three signals:
@@ -403,6 +439,19 @@ Claude drills in:  "Show me the full calculate_shipping"   → 600 tokens
 
 Without engine:    Read payments.py + shipping.py + ...    → 45k tokens
 ```
+
+### Combined Input + Output Savings
+
+The engine compresses **both sides** of the conversation in a single plugin:
+
+| Scenario (Opus 4) | Input Tokens | Output Tokens | Input Cost | Output Cost | **Total** |
+|---|---|---|---|---|---|
+| **No engine** | 50k | 20k | $0.75 | $1.50 | **$2.25** |
+| **Input compression only** (output=off) | 10k | 20k | $0.15 | $1.50 | **$1.65** |
+| **Output compression only** (standard) | 50k | 7k | $0.75 | $0.53 | **$1.28** |
+| **Both** (default config) | 10k | 7k | $0.15 | $0.53 | **$0.68** |
+
+**70% total cost reduction** with both compressions enabled — the default configuration.
 
 ## Development
 
