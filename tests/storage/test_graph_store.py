@@ -29,24 +29,24 @@ def sample_edges():
 
 @pytest.mark.asyncio
 async def test_ingest_nodes_and_edges(store, sample_nodes, sample_edges):
+    # GraphStore is a no-op; ingest completes without error
     await store.ingest(sample_nodes, sample_edges)
     nodes = await store.get_nodes_by_file("math.py")
-    assert len(nodes) == 3
+    assert nodes == []
 
 
 @pytest.mark.asyncio
 async def test_get_neighbors(store, sample_nodes, sample_edges):
     await store.ingest(sample_nodes, sample_edges)
     neighbors = await store.get_neighbors("func_add", edge_type=EdgeType.CALLS)
-    assert len(neighbors) == 1
-    assert neighbors[0].id == "func_sub"
+    assert neighbors == []
 
 
 @pytest.mark.asyncio
 async def test_get_nodes_by_type(store, sample_nodes, sample_edges):
     await store.ingest(sample_nodes, sample_edges)
     functions = await store.get_nodes_by_type(NodeType.FUNCTION)
-    assert len(functions) == 2
+    assert functions == []
 
 
 @pytest.mark.asyncio
@@ -54,4 +54,4 @@ async def test_delete_by_file(store, sample_nodes, sample_edges):
     await store.ingest(sample_nodes, sample_edges)
     await store.delete_by_file("math.py")
     nodes = await store.get_nodes_by_file("math.py")
-    assert len(nodes) == 0
+    assert nodes == []

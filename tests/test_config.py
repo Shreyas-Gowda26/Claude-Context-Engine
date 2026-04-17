@@ -9,7 +9,6 @@ from context_engine.config import Config, load_config
 
 def test_default_config():
     config = Config()
-    assert config.remote_enabled is False
     assert config.compression_level == "standard"
     assert config.embedding_model == "all-MiniLM-L6-v2"
     assert config.retrieval_top_k == 20
@@ -19,13 +18,10 @@ def test_default_config():
 def test_load_from_yaml(tmp_path):
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
-        "remote": {"enabled": True, "host": "fazle@198.162.2.2", "fallback_to_local": True},
         "compression": {"level": "full", "model": "phi3:mini"},
         "retrieval": {"top_k": 50},
     }))
     config = load_config(global_path=config_file)
-    assert config.remote_enabled is True
-    assert config.remote_host == "fazle@198.162.2.2"
     assert config.compression_level == "full"
     assert config.compression_model == "phi3:mini"
     assert config.retrieval_top_k == 50
