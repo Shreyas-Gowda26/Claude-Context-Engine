@@ -13,8 +13,6 @@ from context_engine.config import load_config, PROJECT_CONFIG_NAME
 def _configure_mcp(project_dir: Path) -> bool:
     """Write MCP server config to .mcp.json in the project directory. Returns True if written."""
     mcp_path = project_dir / ".mcp.json"
-    cce_path = sys.executable.replace("python", "cce").replace("python3", "cce")
-    # Prefer the cce binary next to the current Python interpreter
     cce_bin = Path(sys.executable).parent / "cce"
     command = str(cce_bin) if cce_bin.exists() else "cce"
 
