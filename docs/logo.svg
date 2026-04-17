@@ -1,83 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#6c3483;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#2980b9;stop-opacity:1" />
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#0d1c34"/>
     </linearGradient>
-    <linearGradient id="inner" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#8e44ad;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#a6e3a1;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#74c7ec;stop-opacity:1" />
-    </linearGradient>
+    <filter id="glow-sm" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-lg" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="blur"/>
+    </filter>
   </defs>
 
-  <!-- Background rounded square -->
-  <rect x="16" y="16" width="480" height="480" rx="80" ry="80" fill="url(#bg)" />
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
 
-  <!-- Brain/circuit pattern - outer ring -->
-  <circle cx="256" cy="240" r="160" fill="none" stroke="url(#glow)" stroke-width="3" opacity="0.3" />
-  <circle cx="256" cy="240" r="120" fill="none" stroke="url(#glow)" stroke-width="2" opacity="0.2" />
+  <!-- Ambient glow behind bottom bar -->
+  <rect x="76" y="332" width="90" height="40" rx="20" fill="#00c8f0" filter="url(#glow-lg)" opacity="0.45"/>
 
-  <!-- Central hexagon representing the engine -->
-  <polygon points="256,120 316,158 316,234 256,272 196,234 196,158" fill="url(#inner)" stroke="url(#glow)" stroke-width="3" opacity="0.9" />
+  <!-- Bar 1 — widest, dimmest -->
+  <rect x="76" y="120" width="300" height="38" rx="19" fill="#1b3b66" opacity="0.45"/>
 
-  <!-- Index/search icon - magnifying glass with code brackets -->
-  <circle cx="246" cy="186" r="40" fill="none" stroke="#ffffff" stroke-width="6" />
-  <line x1="276" y1="216" x2="306" y2="246" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <!-- Bar 2 -->
+  <rect x="76" y="176" width="238" height="38" rx="19" fill="#1a4e78" opacity="0.58"/>
 
-  <!-- Code brackets inside magnifying glass -->
-  <text x="226" y="196" fill="#a6e3a1" font-family="monospace" font-size="30" font-weight="bold">&lt;/&gt;</text>
+  <!-- Bar 3 -->
+  <rect x="76" y="232" width="175" height="38" rx="19" fill="#006b9c" opacity="0.72"/>
 
-  <!-- Connection nodes - representing graph/vector connections -->
-  <!-- Top -->
-  <circle cx="256" cy="96" r="12" fill="#a6e3a1" />
-  <line x1="256" y1="108" x2="256" y2="120" stroke="#a6e3a1" stroke-width="2" />
+  <!-- Bar 4 -->
+  <rect x="76" y="288" width="118" height="38" rx="19" fill="#0094c2" opacity="0.86"/>
 
-  <!-- Top right -->
-  <circle cx="348" cy="132" r="12" fill="#74c7ec" />
-  <line x1="338" y1="138" x2="316" y2="158" stroke="#74c7ec" stroke-width="2" />
+  <!-- Bar 5 — narrowest, brightest, glowing -->
+  <rect x="76" y="344" width="72" height="38" rx="19" fill="#00c8f0" filter="url(#glow-sm)"/>
 
-  <!-- Right -->
-  <circle cx="360" cy="220" r="12" fill="#f9e2af" />
-  <line x1="348" y1="220" x2="316" y2="220" stroke="#f9e2af" stroke-width="2" />
+  <!-- Right-pointing arrow after bar 5 -->
+  <text x="164" y="372" fill="#00c8f0" font-family="system-ui" font-size="30" opacity="0.55">›</text>
 
-  <!-- Bottom right -->
-  <circle cx="340" cy="290" r="12" fill="#a6e3a1" />
-  <line x1="330" y1="282" x2="316" y2="234" stroke="#a6e3a1" stroke-width="2" />
+  <!-- Left-edge node dots -->
+  <circle cx="76" cy="139" r="5" fill="#2a5080" opacity="0.5"/>
+  <circle cx="76" cy="195" r="5" fill="#2a607a" opacity="0.6"/>
+  <circle cx="76" cy="251" r="5" fill="#0077a8" opacity="0.72"/>
+  <circle cx="76" cy="307" r="5" fill="#009ec8" opacity="0.86"/>
+  <circle cx="76" cy="363" r="5" fill="#00c8f0" filter="url(#glow-sm)"/>
 
-  <!-- Bottom -->
-  <circle cx="256" cy="310" r="12" fill="#74c7ec" />
-  <line x1="256" y1="298" x2="256" y2="272" stroke="#74c7ec" stroke-width="2" />
+  <!-- Divider -->
+  <line x1="72" y1="408" x2="440" y2="408" stroke="#1c3050" stroke-width="1" opacity="0.6"/>
 
-  <!-- Bottom left -->
-  <circle cx="172" cy="290" r="12" fill="#f9e2af" />
-  <line x1="182" y1="282" x2="196" y2="234" stroke="#f9e2af" stroke-width="2" />
-
-  <!-- Left -->
-  <circle cx="152" cy="220" r="12" fill="#a6e3a1" />
-  <line x1="164" y1="220" x2="196" y2="220" stroke="#a6e3a1" stroke-width="2" />
-
-  <!-- Top left -->
-  <circle cx="164" cy="132" r="12" fill="#74c7ec" />
-  <line x1="174" y1="138" x2="196" y2="158" stroke="#74c7ec" stroke-width="2" />
-
-  <!-- Compression arrows (down arrows representing token reduction) -->
-  <g transform="translate(186, 340)" opacity="0.9">
-    <polygon points="0,0 20,0 10,16" fill="#a6e3a1" />
-  </g>
-  <g transform="translate(246, 340)" opacity="0.9">
-    <polygon points="0,0 20,0 10,16" fill="#a6e3a1" />
-  </g>
-  <g transform="translate(306, 340)" opacity="0.9">
-    <polygon points="0,0 20,0 10,16" fill="#a6e3a1" />
-  </g>
-
-  <!-- Text: CCE -->
-  <text x="256" y="410" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" letter-spacing="8">CCE</text>
+  <!-- CCE text -->
+  <text x="256" y="455" text-anchor="middle" fill="#e2eeff" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="800" letter-spacing="10">CCE</text>
 
   <!-- Subtitle -->
-  <text x="256" y="448" text-anchor="middle" fill="#cdd6f4" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="400" letter-spacing="4" opacity="0.8">CONTEXT ENGINE</text>
+  <text x="256" y="486" text-anchor="middle" fill="#3a5a80" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="500" letter-spacing="5">CONTEXT ENGINE</text>
 </svg>
