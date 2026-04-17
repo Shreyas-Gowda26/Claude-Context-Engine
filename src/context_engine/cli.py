@@ -135,6 +135,120 @@ def status(ctx: click.Context) -> None:
 
 
 @main.command()
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--all-projects", is_flag=True, help="Show savings for all indexed projects")
+@click.pass_context
+def savings(ctx: click.Context, as_json: bool, all_projects: bool) -> None:
+    """Show token usage and savings report for the current project."""
+    import json as _json
+    config = ctx.obj["config"]
+    storage_root = Path(config.storage_path)
+
+    def _load_project_stats(project_dir: Path) -> dict | None:
+        stats_path = project_dir / "stats.json"
+        if not stats_path.exists():
+            return None
+        try:
+            return _json.loads(stats_path.read_text())
+        except (KeyError, _json.JSONDecodeError):
+            return None
+
+    def _format_report(project_name: str, stats: dict) -> str:
+        raw = stats.get("raw_tokens", 0)
+        served = stats.get("served_tokens", 0)
+        queries = stats.get("queries", 0)
+        saved = raw - served
+        pct = int(saved / raw * 100) if raw > 0 else 0
+
+        lines = [
+            f"Project: {project_name}",
+            f"  Queries:        {queries:,}",
+            f"  Raw tokens:     {raw:,}",
+            f"  Served tokens:  {served:,}",
+            f"  Tokens saved:   {saved:,} ({pct}%)",
+        ]
+        return "\n".join(lines)
+
+    if all_projects:
+        if not storage_root.exists():
+            if as_json:
+                click.echo(_json.dumps({"projects": []}))
+            else:
+                click.echo("No indexed projects found.")
+            return
+
+        project_dirs = [d for d in sorted(storage_root.iterdir()) if d.is_dir()]
+        reports = []
+        for project_dir in project_dirs:
+            stats = _load_project_stats(project_dir)
+            if stats is None:
+                continue
+            reports.append((project_dir.name, stats))
+
+        if not reports:
+            if as_json:
+                click.echo(_json.dumps({"projects": []}))
+            else:
+                click.echo("No usage recorded yet (run context_search via MCP to start tracking).")
+            return
+
+        if as_json:
+            output = []
+            for name, stats in reports:
+                raw = stats.get("raw_tokens", 0)
+                served = stats.get("served_tokens", 0)
+                output.append({
+                    "project": name,
+                    "queries": stats.get("queries", 0),
+                    "raw_tokens": raw,
+                    "served_tokens": served,
+                    "tokens_saved": raw - served,
+                    "savings_pct": int((raw - served) / raw * 100) if raw > 0 else 0,
+                })
+            click.echo(_json.dumps({"projects": output}, indent=2))
+        else:
+            click.echo("CCE Usage & Savings Report")
+            click.echo("=" * 40)
+            for name, stats in reports:
+                click.echo(_format_report(name, stats))
+                click.echo()
+    else:
+        project_name = Path.cwd().name
+        project_dir = storage_root / project_name
+        stats = _load_project_stats(project_dir)
+
+        if stats is None:
+            if as_json:
+                click.echo(_json.dumps({
+                    "project": project_name,
+                    "queries": 0,
+                    "raw_tokens": 0,
+                    "served_tokens": 0,
+                    "tokens_saved": 0,
+                    "savings_pct": 0,
+                }))
+            else:
+                click.echo("No usage recorded yet (run context_search via MCP to start tracking).")
+            return
+
+        if as_json:
+            raw = stats.get("raw_tokens", 0)
+            served = stats.get("served_tokens", 0)
+            click.echo(_json.dumps({
+                "project": project_name,
+                "queries": stats.get("queries", 0),
+                "raw_tokens": raw,
+                "served_tokens": served,
+                "tokens_saved": raw - served,
+                "savings_pct": int((raw - served) / raw * 100) if raw > 0 else 0,
+            }, indent=2))
+        else:
+            click.echo("CCE Usage & Savings Report")
+            click.echo("=" * 40)
+            click.echo(_format_report(project_name, stats))
+
+
+@main.command()
 @click.pass_context
 def serve(ctx: click.Context) -> None:
     """Start the MCP server (used by Claude Code)."""
