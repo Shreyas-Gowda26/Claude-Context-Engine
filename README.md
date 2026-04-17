@@ -169,12 +169,12 @@ Per-project overrides go in `.context-engine.yaml` at the project root.
 
 ### Optional: LLM Compression (Ollama)
 
-By default, compression uses smart truncation (signature extraction). For higher-quality summaries, install Ollama:
+By default, compression uses smart truncation (signature extraction). If you have [Ollama](https://ollama.com/) running on your machine, the engine detects it automatically and uses it for higher-quality summaries. No extra config needed.
 
 ```bash
 brew install ollama
 ollama pull phi3:mini
-pip install "claude-context-engine[llm]"
+# that's it — cce will use it automatically
 ```
 
 ---
