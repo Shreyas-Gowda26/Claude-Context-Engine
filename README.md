@@ -266,7 +266,7 @@ ollama pull phi3:mini
 <details>
 <summary><h2>Supported Languages</h2></summary>
 
-**AST-aware chunking** (tree-sitter): Python, JavaScript, TypeScript, JSX, TSX
+**AST-aware chunking** (tree-sitter): Python, JavaScript, TypeScript, JSX, TSX, PHP
 
 **Fallback chunking** (full-file): Markdown and other text files
 

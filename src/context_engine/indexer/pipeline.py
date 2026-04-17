@@ -34,7 +34,7 @@ def _pipeline_lock(storage_key: str) -> asyncio.Lock:
         _PIPELINE_LOCKS[storage_key] = lock
     return lock
 
-_EXTENSIONS = {".py", ".js", ".ts", ".jsx", ".tsx", ".md"}
+_EXTENSIONS = {".py", ".js", ".ts", ".jsx", ".tsx", ".md", ".php"}
 _LANGUAGE_MAP = {
     ".py": "python",
     ".js": "javascript",
@@ -42,6 +42,7 @@ _LANGUAGE_MAP = {
     ".jsx": "javascript",
     ".tsx": "typescript",
     ".md": "markdown",
+    ".php": "php",
 }
 
 
