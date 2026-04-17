@@ -68,8 +68,18 @@ def status(ctx):
 @click.pass_context
 def serve(ctx):
     """Start the MCP server + daemon."""
-    click.echo("Starting context engine daemon + MCP server...")
+    click.echo("Starting context engine daemon + MCP server...", err=True)
     asyncio.run(_run_serve(ctx.obj["config"]))
+
+
+@main.command(name="serve-http")
+@click.option("--host", default="0.0.0.0", help="Bind address")
+@click.option("--port", default=8765, type=int, help="Port to listen on")
+@click.pass_context
+def serve_http(ctx, host, port):
+    """Start the HTTP API server (for remote mode)."""
+    from context_engine.serve_http import run_http_server
+    run_http_server(config=ctx.obj["config"], host=host, port=port)
 
 
 @main.command(name="remote-setup")
@@ -91,13 +101,25 @@ async def _run_index(config, project_dir: str, full: bool = False) -> None:
     from context_engine.indexer.embedder import Embedder
     from context_engine.indexer.manifest import Manifest
     from context_engine.storage.local_backend import LocalBackend
+    from context_engine.storage.remote_backend import RemoteBackend
     from context_engine.models import GraphNode, GraphEdge, NodeType, EdgeType
 
     project_name = Path(project_dir).name
     storage_base = Path(config.storage_path) / project_name
     storage_base.mkdir(parents=True, exist_ok=True)
 
-    backend = LocalBackend(base_path=str(storage_base))
+    if config.remote_enabled:
+        remote = RemoteBackend(host=config.remote_host, fallback_to_local=config.remote_fallback_to_local)
+        if await remote.is_reachable():
+            backend = remote
+            click.echo(f"Using remote backend: {config.remote_host}")
+        elif config.remote_fallback_to_local:
+            backend = LocalBackend(base_path=str(storage_base))
+            click.echo("Remote unreachable, falling back to local")
+        else:
+            raise ConnectionError(f"Remote {config.remote_host} unreachable and fallback disabled")
+    else:
+        backend = LocalBackend(base_path=str(storage_base))
     chunker = Chunker()
     embedder = Embedder(model_name=config.embedding_model)
     manifest = Manifest(manifest_path=storage_base / "manifest.json")
@@ -112,14 +134,23 @@ async def _run_index(config, project_dir: str, full: bool = False) -> None:
     all_chunks = []
     all_nodes = []
     all_edges = []
+    ignore_set = set(config.indexer_ignore)
 
-    for file_path in project_path.rglob("*"):
-        if not file_path.is_file():
-            continue
-        if file_path.suffix not in extensions:
-            continue
-        if any(ignore in str(file_path) for ignore in config.indexer_ignore):
-            continue
+    def _walk_files(root: Path):
+        """Walk directory tree, skipping ignored directories early."""
+        try:
+            entries = sorted(root.iterdir())
+        except PermissionError:
+            return
+        for entry in entries:
+            if entry.name in ignore_set:
+                continue
+            if entry.is_dir():
+                yield from _walk_files(entry)
+            elif entry.is_file() and entry.suffix in extensions:
+                yield entry
+
+    for file_path in _walk_files(project_path):
         rel_path = str(file_path.relative_to(project_path))
         content = file_path.read_text(errors="ignore")
         content_hash = hashlib.sha256(content.encode()).hexdigest()
