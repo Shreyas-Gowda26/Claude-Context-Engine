@@ -1,5 +1,13 @@
 # Claude Context Engine
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-green.svg)](https://modelcontextprotocol.io)
+[![GitHub stars](https://img.shields.io/github/stars/fazleelahhee/Claude-Context-Engine?style=social)](https://github.com/fazleelahhee/Claude-Context-Engine)
+[![GitHub forks](https://img.shields.io/github/forks/fazleelahhee/Claude-Context-Engine?style=social)](https://github.com/fazleelahhee/Claude-Context-Engine/fork)
+[![GitHub issues](https://img.shields.io/github/issues/fazleelahhee/Claude-Context-Engine)](https://github.com/fazleelahhee/Claude-Context-Engine/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/fazleelahhee/Claude-Context-Engine/pulls)
+
 A local context indexing system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that indexes your codebase, compresses context, and serves it via MCP — so Claude starts every session already knowing your project.
 
 ## The Problem
@@ -280,6 +288,38 @@ pytest --cov=context_engine
 pytest tests/integration/test_end_to_end.py
 ```
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Roadmap
+
+- [ ] Tree-sitter support for Go, Rust, Java, C/C++
+- [ ] Web dashboard for index inspection
+- [ ] PyPI package publishing
+- [ ] GitHub Actions CI pipeline
+- [ ] Persistent session search across projects
+- [ ] Smarter graph edge detection (call graph, import resolution)
+
 ## License
 
-MIT
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) by Anthropic
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io) for the integration standard
+- [LanceDB](https://lancedb.com/) for vector storage
+- [Kuzu](https://kuzudb.com/) for the graph database
+- [Tree-sitter](https://tree-sitter.github.io/) for AST parsing
+- [Ollama](https://ollama.com/) for local LLM compression
+
+---
+
+If this project helps you, give it a star! It helps others discover it.

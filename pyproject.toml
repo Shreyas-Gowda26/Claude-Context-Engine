@@ -2,6 +2,20 @@
 name = "claude-context-engine"
 version = "0.1.0"
 description = "Local context engine for Claude Code — indexes projects, compresses context, reduces token cost"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Fazle Elahee"}]
+keywords = ["claude", "context", "mcp", "llm", "code-indexing", "vector-search"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1",
@@ -18,6 +32,7 @@ dependencies = [
     "httpx>=0.27",
     "asyncssh>=2.14",
     "ollama>=0.3",
+    "aiohttp>=3.9",
 ]
 
 [project.optional-dependencies]
