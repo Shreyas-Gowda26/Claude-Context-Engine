@@ -94,16 +94,36 @@ def index(ctx: click.Context, full: bool, path: str | None, changed_only: bool) 
 @click.pass_context
 def status(ctx: click.Context) -> None:
     """Show index status and config."""
+    import json as _json
     config = ctx.obj["config"]
     verbose = ctx.obj["verbose"]
     click.echo(f"Storage path: {config.storage_path}")
     click.echo(f"Compression level: {config.compression_level}")
     click.echo(f"Resource profile: {config.detect_resource_profile()}")
+
+    # Token savings
+    project_name = Path.cwd().name
+    stats_path = Path(config.storage_path) / project_name / "stats.json"
+    if stats_path.exists():
+        try:
+            stats = _json.loads(stats_path.read_text())
+            raw = stats.get("raw_tokens", 0)
+            served = stats.get("served_tokens", 0)
+            queries = stats.get("queries", 0)
+            saved = raw - served
+            pct = int(saved / raw * 100) if raw > 0 else 0
+            click.echo(f"\nToken savings ({queries} queries):")
+            click.echo(f"  Raw tokens:    {raw:,}")
+            click.echo(f"  Served tokens: {served:,}")
+            click.echo(f"  Saved:         {saved:,} ({pct}%)")
+        except (KeyError, _json.JSONDecodeError):
+            pass
+
     if verbose:
         storage_path = Path(config.storage_path)
         if storage_path.exists():
             projects = [d for d in storage_path.iterdir() if d.is_dir()]
-            click.echo(f"Projects indexed: {len(projects)}")
+            click.echo(f"\nProjects indexed: {len(projects)}")
             for project in projects:
                 chunks = list(project.glob("**/*.json"))
                 click.echo(f"  {project.name}: {len(chunks)} stored files")

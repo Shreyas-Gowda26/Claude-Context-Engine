@@ -1,8 +1,17 @@
 """MCP server exposing context engine tools to Claude Code."""
+import json
+from pathlib import Path
+
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
 from context_engine.compression.output_rules import get_output_rules, get_level_description, LEVELS
+
+_CHARS_PER_TOKEN = 4
+
+
+def _count_tokens(text: str) -> int:
+    return max(1, len(text) // _CHARS_PER_TOKEN)
 
 
 class ContextEngineMCP:
@@ -20,8 +29,33 @@ class ContextEngineMCP:
         self._config = config
         self._output_level = config.output_compression
         self._server = Server("claude-context-engine")
+
+        project_name = Path.cwd().name
+        self._stats_path = Path(config.storage_path) / project_name / "stats.json"
+        self._stats = self._load_stats()
+
         self._register_tools()
         self._register_prompts()
+
+    def _load_stats(self) -> dict:
+        if self._stats_path.exists():
+            try:
+                return json.loads(self._stats_path.read_text())
+            except (json.JSONDecodeError, OSError):
+                pass
+        return {"queries": 0, "raw_tokens": 0, "served_tokens": 0}
+
+    def _save_stats(self) -> None:
+        try:
+            self._stats_path.write_text(json.dumps(self._stats))
+        except OSError:
+            pass
+
+    def _record(self, raw_tokens: int, served_tokens: int) -> None:
+        self._stats["queries"] += 1
+        self._stats["raw_tokens"] += raw_tokens
+        self._stats["served_tokens"] += served_tokens
+        self._save_stats()
 
     def get_tool_names(self) -> list[str]:
         return list(self.TOOL_NAMES)
@@ -120,22 +154,28 @@ class ContextEngineMCP:
     async def _handle_context_search(self, args):
         chunks = await self._retriever.retrieve(args["query"], top_k=args.get("top_k", 10))
         results = []
+        raw_tokens = 0
+        served_tokens = 0
         for chunk in chunks:
-            text = chunk.compressed_content or chunk.content
+            served_text = chunk.compressed_content or chunk.content
+            raw_tokens += _count_tokens(chunk.content)
+            served_tokens += _count_tokens(served_text)
             results.append(
-                f"[{chunk.file_path}:{chunk.start_line}] (confidence: {chunk.confidence_score:.2f})\n{text}"
+                f"[{chunk.file_path}:{chunk.start_line}] (confidence: {chunk.confidence_score:.2f})\n{served_text}"
             )
         body = "\n\n---\n\n".join(results) if results else "No results found."
-        # Append output compression reminder if active
         rules = get_output_rules(self._output_level)
         if rules:
             body += f"\n\n---\n[Respond using {self._output_level} output compression]"
+        self._record(raw_tokens, served_tokens)
         return [TextContent(type="text", text=body)]
 
     async def _handle_expand_chunk(self, args):
         chunk = await self._backend.get_chunk_by_id(args["chunk_id"])
         if chunk is None:
             return [TextContent(type="text", text="Chunk not found.")]
+        tokens = _count_tokens(chunk.content)
+        self._record(tokens, tokens)
         return [
             TextContent(
                 type="text",
