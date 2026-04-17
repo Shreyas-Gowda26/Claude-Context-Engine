@@ -1,0 +1,174 @@
+# src/context_engine/cli.py
+"""CLI entry point for claude-context-engine."""
+import asyncio
+from pathlib import Path
+
+import click
+
+from context_engine.config import load_config, PROJECT_CONFIG_NAME
+
+
+@click.group()
+@click.pass_context
+def main(ctx):
+    """claude-context-engine — Local context engine for Claude Code."""
+    ctx.ensure_object(dict)
+    project_path = Path.cwd() / PROJECT_CONFIG_NAME
+    ctx.obj["config"] = load_config(project_path=project_path if project_path.exists() else None)
+
+
+@main.command()
+@click.pass_context
+def init(ctx):
+    """Initialize context engine for the current project."""
+    from context_engine.indexer.git_hooks import install_hooks
+    config = ctx.obj["config"]
+    project_dir = str(Path.cwd())
+    try:
+        installed = install_hooks(project_dir)
+        click.echo(f"Git hooks installed: {len(installed)} hooks")
+    except FileNotFoundError:
+        click.echo("No .git directory found — skipping git hooks")
+    project_name = Path.cwd().name
+    storage_dir = Path(config.storage_path) / project_name
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    click.echo(f"Storage directory: {storage_dir}")
+    click.echo("Running initial index...")
+    asyncio.run(_run_index(config, project_dir, full=True))
+    click.echo("Initialization complete.")
+
+
+@main.command()
+@click.option("--full", is_flag=True, help="Force full re-index")
+@click.option("--path", type=str, default=None, help="Index specific file/directory")
+@click.option("--changed-only", is_flag=True, help="Only index changed files")
+@click.pass_context
+def index(ctx, full, path, changed_only):
+    """Index or re-index project files."""
+    config = ctx.obj["config"]
+    project_dir = path or str(Path.cwd())
+    asyncio.run(_run_index(config, project_dir, full=full))
+    click.echo("Indexing complete.")
+
+
+@main.command()
+@click.pass_context
+def status(ctx):
+    """Show index status, DB stats, and remote server status."""
+    config = ctx.obj["config"]
+    click.echo(f"Storage path: {config.storage_path}")
+    click.echo(f"Remote enabled: {config.remote_enabled}")
+    if config.remote_enabled:
+        click.echo(f"Remote host: {config.remote_host}")
+    click.echo(f"Compression level: {config.compression_level}")
+    click.echo(f"Resource profile: {config.detect_resource_profile()}")
+
+
+@main.command()
+@click.pass_context
+def serve(ctx):
+    """Start the MCP server + daemon."""
+    click.echo("Starting context engine daemon + MCP server...")
+    asyncio.run(_run_serve(ctx.obj["config"]))
+
+
+@main.command(name="remote-setup")
+@click.pass_context
+def remote_setup(ctx):
+    """Set up context engine on remote server."""
+    config = ctx.obj["config"]
+    if not config.remote_enabled:
+        click.echo("Remote is not enabled in config.")
+        return
+    click.echo(f"Setting up remote server: {config.remote_host}")
+    click.echo("Remote setup not yet implemented.")
+
+
+async def _run_index(config, project_dir: str, full: bool = False) -> None:
+    """Run indexing pipeline."""
+    import hashlib
+    from context_engine.indexer.chunker import Chunker
+    from context_engine.indexer.embedder import Embedder
+    from context_engine.indexer.manifest import Manifest
+    from context_engine.storage.local_backend import LocalBackend
+    from context_engine.models import GraphNode, GraphEdge, NodeType, EdgeType
+
+    project_name = Path(project_dir).name
+    storage_base = Path(config.storage_path) / project_name
+    storage_base.mkdir(parents=True, exist_ok=True)
+
+    backend = LocalBackend(base_path=str(storage_base))
+    chunker = Chunker()
+    embedder = Embedder(model_name=config.embedding_model)
+    manifest = Manifest(manifest_path=storage_base / "manifest.json")
+
+    extensions = {".py", ".js", ".ts", ".jsx", ".tsx", ".md"}
+    language_map = {
+        ".py": "python", ".js": "javascript", ".ts": "typescript",
+        ".jsx": "javascript", ".tsx": "typescript", ".md": "markdown",
+    }
+
+    project_path = Path(project_dir)
+    all_chunks = []
+    all_nodes = []
+    all_edges = []
+
+    for file_path in project_path.rglob("*"):
+        if not file_path.is_file():
+            continue
+        if file_path.suffix not in extensions:
+            continue
+        if any(ignore in str(file_path) for ignore in config.indexer_ignore):
+            continue
+        rel_path = str(file_path.relative_to(project_path))
+        content = file_path.read_text(errors="ignore")
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
+        if not full and not manifest.has_changed(rel_path, content_hash):
+            continue
+        language = language_map.get(file_path.suffix, "plaintext")
+        chunks = chunker.chunk(content, file_path=rel_path, language=language)
+        file_node = GraphNode(
+            id=f"file_{rel_path}", node_type=NodeType.FILE,
+            name=file_path.name, file_path=rel_path,
+        )
+        all_nodes.append(file_node)
+        for chunk in chunks:
+            node = GraphNode(
+                id=chunk.id,
+                node_type=NodeType.FUNCTION if chunk.chunk_type.value == "function" else NodeType.CLASS,
+                name=chunk.content.split("(")[0].split(":")[-1].strip() if "(" in chunk.content else chunk.id,
+                file_path=rel_path,
+            )
+            all_nodes.append(node)
+            all_edges.append(GraphEdge(
+                source_id=file_node.id, target_id=chunk.id, edge_type=EdgeType.DEFINES,
+            ))
+        all_chunks.extend(chunks)
+        manifest.update(rel_path, content_hash)
+
+    if all_chunks:
+        embedder.embed(all_chunks)
+        await backend.ingest(all_chunks, all_nodes, all_edges)
+    manifest.save()
+    click.echo(f"Indexed {len(all_chunks)} chunks from {len(set(c.file_path for c in all_chunks))} files")
+
+
+async def _run_serve(config) -> None:
+    """Start daemon with MCP server."""
+    from context_engine.storage.local_backend import LocalBackend
+    from context_engine.indexer.embedder import Embedder
+    from context_engine.retrieval.retriever import HybridRetriever
+    from context_engine.compression.compressor import Compressor
+    from context_engine.integration.mcp_server import ContextEngineMCP
+
+    project_name = Path.cwd().name
+    storage_base = Path(config.storage_path) / project_name
+    backend = LocalBackend(base_path=str(storage_base))
+    embedder = Embedder(model_name=config.embedding_model)
+    retriever = HybridRetriever(backend=backend, embedder=embedder)
+    compressor = Compressor(model=config.compression_model)
+    mcp = ContextEngineMCP(
+        retriever=retriever, backend=backend, compressor=compressor,
+        embedder=embedder, config=config,
+    )
+    await mcp.run_stdio()
