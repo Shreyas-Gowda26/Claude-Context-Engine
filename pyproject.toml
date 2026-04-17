@@ -46,6 +46,7 @@ dev = [
 [project.scripts]
 claude-context-engine = "context_engine.cli:main"
 cce = "context_engine.cli:main"
+cce-savings = "context_engine.cli:savings_shortcut"
 
 [build-system]
 requires = ["setuptools>=68.0"]

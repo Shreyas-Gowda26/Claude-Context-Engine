@@ -58,7 +58,7 @@ def test_savings_with_data(runner, stats_dir):
     storage_path, project_name = stats_dir
     result = _invoke_savings(runner, storage_path, project_name)
     assert result.exit_code == 0
-    assert "CCE Usage & Savings Report" in result.output
+    assert "CCE Token Savings Report" in result.output
     assert "5,000" in result.output      # raw_tokens
     assert "2,000" in result.output      # served_tokens
     assert "3,000" in result.output      # tokens_saved
@@ -110,7 +110,7 @@ def test_savings_all_projects(runner, tmp_path):
         cwd.mkdir()
         with patch("context_engine.cli.load_config", return_value=config), \
              patch("context_engine.cli.Path.cwd", return_value=cwd):
-            result = runner.invoke(main, ["savings", "--all-projects"])
+            result = runner.invoke(main, ["savings", "--all"])
     assert result.exit_code == 0
     assert "proj-a" in result.output
     assert "proj-b" in result.output
@@ -132,7 +132,7 @@ def test_savings_all_projects_json(runner, tmp_path):
         cwd.mkdir()
         with patch("context_engine.cli.load_config", return_value=config), \
              patch("context_engine.cli.Path.cwd", return_value=cwd):
-            result = runner.invoke(main, ["savings", "--all-projects", "--json"])
+            result = runner.invoke(main, ["savings", "--all", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     projects = {p["project"]: p for p in data["projects"]}
@@ -150,6 +150,6 @@ def test_savings_all_projects_empty(runner, tmp_path):
         cwd.mkdir()
         with patch("context_engine.cli.load_config", return_value=config), \
              patch("context_engine.cli.Path.cwd", return_value=cwd):
-            result = runner.invoke(main, ["savings", "--all-projects"])
+            result = runner.invoke(main, ["savings", "--all"])
     assert result.exit_code == 0
     assert "No usage recorded" in result.output
