@@ -453,6 +453,74 @@ The engine compresses **both sides** of the conversation in a single plugin:
 
 **70% total cost reduction** with both compressions enabled — the default configuration.
 
+## Comparison: Claude Context Engine vs Caveman
+
+[Caveman](https://github.com/JuliusBrussee/caveman) is a popular output-compression plugin (36k+ stars). Here's how the two compare:
+
+### Architecture
+
+| | **Claude Context Engine** | **Caveman** |
+|---|---|---|
+| **Type** | Full context management system + MCP server | Prompt engineering plugin via hooks |
+| **Language** | Python | JavaScript + Shell |
+| **Storage** | LanceDB (vectors) + Kuzu (graph) + session history | Single flag file |
+| **Infrastructure** | Daemon process with background indexing | Stateless — no persistent processes |
+| **Integration** | MCP protocol (standard) | Claude Code hooks (SessionStart, UserPromptSubmit) |
+| **Agent support** | Any MCP-compatible agent | Claude Code, Codex, Gemini CLI, Cursor, Copilot, 40+ agents |
+
+### What Each Tool Compresses
+
+| | **Claude Context Engine** | **Caveman** |
+|---|---|---|
+| **Input tokens** (what Claude reads) | Yes — AST chunking, vector search, LLM summarization, graph traversal | No |
+| **Output tokens** (what Claude writes) | Yes — built-in output compression (4 levels) | Yes — this is its only focus |
+| **Code in responses** | Never compressed | Never compressed |
+| **Session memory** | Yes — persists decisions, code areas, Q&A across sessions | No |
+| **Codebase indexing** | Yes — incremental, AST-aware | No |
+
+### Output Compression Comparison
+
+Both tools reduce Claude's response verbosity. Here's how the approaches differ:
+
+| | **Context Engine** | **Caveman** |
+|---|---|---|
+| **Mechanism** | MCP prompt resource + tool response hints | System prompt injection via hooks |
+| **Levels** | 4 (`off`, `lite`, `standard`, `max`) | 5 (`lite`, `full`, `ultra`, `wenyan` x3) |
+| **Mid-session toggle** | Yes — via `set_output_compression` MCP tool | Yes — via `/caveman` slash command |
+| **Output savings** | ~30-75% depending on level | ~22-87% depending on level |
+| **Commit messages** | Not included | Yes — `caveman-commit` (<=50 char) |
+| **PR reviews** | Not included | Yes — `caveman-review` (one-liners) |
+| **File compression** | Compresses code semantically for retrieval | `caveman-compress` rewrites .md files in terse prose |
+| **Safety exceptions** | Security warnings + destructive actions use full clarity | Security warnings + irreversible actions use full clarity |
+
+### Token Savings Side-by-Side
+
+Medium project session on **Claude Opus 4** ($15/1M input, $75/1M output):
+
+| Scenario | Input | Output | Input Cost | Output Cost | **Total** | **Savings** |
+|---|---|---|---|---|---|---|
+| **No tool** | 50k | 20k | $0.75 | $1.50 | **$2.25** | — |
+| **Caveman only** (full) | 50k | 7k | $0.75 | $0.53 | **$1.28** | 43% |
+| **Context Engine** (input only, output=off) | 10k | 20k | $0.15 | $1.50 | **$1.65** | 27% |
+| **Context Engine** (both, default) | 10k | 7k | $0.15 | $0.53 | **$0.68** | 70% |
+
+### When to Use Which
+
+| Use Case | Recommended |
+|----------|------------|
+| You just want cheaper responses, no setup | **Caveman** — install and go, zero config |
+| You want full context management + cost savings | **Context Engine** — one plugin for both sides |
+| Large codebase with repeated sessions | **Context Engine** — session memory + incremental indexing pay off over time |
+| Multi-agent support (Cursor, Copilot, Gemini) | **Caveman** — supports 40+ agents out of the box |
+| You need codebase search + graph traversal | **Context Engine** — Caveman doesn't index code |
+| You want commit/PR review compression | **Caveman** — has dedicated skills for these |
+
+### Key Difference
+
+**Caveman** does one thing well: it makes Claude talk less. Zero infrastructure, zero storage, instant setup. It's a communication-style modifier.
+
+**Context Engine** is a full context management system that also includes output compression. It indexes your codebase, builds a knowledge graph, compresses context semantically, persists session history, and reduces both input and output tokens. More setup, but deeper savings over time — especially on large projects with repeated sessions.
+
 ## Development
 
 ```bash
