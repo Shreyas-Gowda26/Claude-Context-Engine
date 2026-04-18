@@ -3,6 +3,7 @@
 Single-file SPA. Fetches data from /api/* on tab switch.
 Polls /api/status every 5 seconds for live updates.
 No external dependencies — all CSS and JS inline.
+Grafana-inspired dark theme.
 """
 
 PAGE_HTML = """<!DOCTYPE html>
@@ -13,491 +14,503 @@ PAGE_HTML = """<!DOCTYPE html>
 <title>CCE Dashboard</title>
 <style>
 :root {
-  --bg: #0a0c10;
-  --surface: #111318;
-  --surface2: #181c24;
-  --surface3: #1e2330;
-  --border: #252b38;
-  --border2: #2e3547;
-  --text: #e2e8f0;
-  --text2: #8892a4;
-  --text3: #525e72;
-  --accent: #4f8ef7;
-  --accent-dim: #1a2d52;
-  --green: #34d399;
-  --green-dim: #0d2e22;
-  --yellow: #fbbf24;
-  --yellow-dim: #2a1f08;
-  --red: #f87171;
-  --red-dim: #2a1010;
-  --purple: #a78bfa;
-  --purple-dim: #1e1535;
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.25);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  --bg:        #111217;
+  --bg2:       #0d0f13;
+  --panel:     #181b1f;
+  --panel2:    #1e2128;
+  --panel3:    #23272e;
+  --border:    #2d3035;
+  --border2:   #3a3f47;
+  --text:      #d8dce2;
+  --text2:     #8e97a5;
+  --text3:     #555d6b;
+  --blue:      #5794f2;
+  --blue-bg:   rgba(87,148,242,.1);
+  --green:     #73bf69;
+  --green-bg:  rgba(115,191,105,.1);
+  --yellow:    #f2cc0c;
+  --yellow-bg: rgba(242,204,12,.1);
+  --red:       #f15f5f;
+  --red-bg:    rgba(241,95,95,.1);
+  --orange:    #ff9830;
+  --orange-bg: rgba(255,152,48,.1);
+  --purple:    #b877d9;
+  --purple-bg: rgba(184,119,217,.1);
+  --mono: "JetBrains Mono","Fira Code","Cascadia Code","SF Mono",monospace;
+  --sans: Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --r: 3px;
+  --r2: 5px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg2); color: var(--text); font-family: var(--sans); font-size: 13px; display: flex; flex-direction: column; }
 
-html, body { height: 100%; }
+/* ── Top bar ─────────────────────────────────────── */
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 13.5px;
-  line-height: 1.5;
+.topbar {
+  height: 41px;
+  min-height: 41px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
   display: flex;
-  overflow: hidden;
+  align-items: center;
+  padding: 0 16px;
+  gap: 0;
+  z-index: 10;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────── */
-
-.sidebar {
-  width: 220px;
-  min-width: 220px;
-  background: var(--surface);
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 16px;
   border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  height: 100vh;
-  position: sticky;
-  top: 0;
+  margin-right: 16px;
+  flex-shrink: 0;
 }
 
-.sidebar-logo {
-  padding: 20px 20px 0;
+.logo-icon {
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  border-radius: var(--r);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -.5px;
+  font-family: var(--mono);
+}
+
+.topbar-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: .1px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.breadcrumb-sep { color: var(--text3); }
+
+.breadcrumb-project {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--blue);
+  background: var(--blue-bg);
+  padding: 2px 8px;
+  border-radius: var(--r);
+  border: 1px solid rgba(87,148,242,.2);
+}
+
+.topbar-right {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.logo-mark {
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(135deg, var(--accent) 0%, #7c6af7 100%);
-  border-radius: 8px;
+.live-badge {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 12px;
-  letter-spacing: -0.5px;
-  color: #fff;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(79,142,247,.35);
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
 }
 
-.logo-text {
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text);
-  letter-spacing: 0.3px;
-}
-
-.project-badge {
-  margin: 10px 16px 4px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 7px 10px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.project-dot {
+.live-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--green);
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(52,211,153,.2);
+  box-shadow: 0 0 0 0 rgba(115,191,105,.5);
+  animation: livepulse 2s ease-in-out infinite;
 }
 
-.project-name {
-  font-size: 12px;
-  color: var(--text2);
-  font-family: var(--mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@keyframes livepulse {
+  0%   { box-shadow: 0 0 0 0 rgba(115,191,105,.5); }
+  70%  { box-shadow: 0 0 0 5px rgba(115,191,105,0); }
+  100% { box-shadow: 0 0 0 0 rgba(115,191,105,0); }
 }
 
-.nav {
-  padding: 8px 10px;
+/* ── Layout ──────────────────────────────────────── */
+
+.layout {
+  display: flex;
   flex: 1;
+  overflow: hidden;
 }
 
-.nav-section {
+/* ── Sidebar ─────────────────────────────────────── */
+
+.sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.nav-section-label {
+  padding: 14px 14px 5px;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .8px;
+  font-weight: 700;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text3);
-  padding: 12px 8px 4px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+  padding: 8px 14px;
   color: var(--text2);
   font-size: 13px;
-  font-weight: 500;
+  cursor: pointer;
   border: none;
   background: none;
   width: 100%;
   text-align: left;
-  transition: background .15s, color .15s;
+  transition: background .1s, color .1s;
+  border-left: 3px solid transparent;
   position: relative;
 }
 
-.nav-item svg { flex-shrink: 0; opacity: .7; }
-
-.nav-item:hover { background: var(--surface2); color: var(--text); }
-.nav-item:hover svg { opacity: 1; }
+.nav-item svg { flex-shrink: 0; opacity: .6; }
+.nav-item:hover { background: var(--panel2); color: var(--text); }
+.nav-item:hover svg { opacity: .85; }
 
 .nav-item.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-weight: 600;
+  background: var(--panel2);
+  color: var(--text);
+  border-left-color: var(--blue);
+  font-weight: 500;
 }
-.nav-item.active svg { opacity: 1; }
 
-.nav-item .badge-count {
+.nav-item.active svg { opacity: 1; color: var(--blue); }
+
+.nav-count {
   margin-left: auto;
-  background: var(--surface3);
+  font-size: 10.5px;
+  font-family: var(--mono);
   color: var(--text3);
-  font-size: 10px;
-  font-weight: 600;
+  background: var(--panel3);
   padding: 1px 6px;
   border-radius: 10px;
-  min-width: 20px;
+  min-width: 22px;
   text-align: center;
 }
 
-.nav-item.active .badge-count {
-  background: rgba(79,142,247,.2);
-  color: var(--accent);
-}
+.nav-item.active .nav-count { color: var(--blue); background: var(--blue-bg); }
 
-.sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-}
+.sidebar-spacer { flex: 1; }
 
-.poll-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text3);
-}
-
-.poll-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: pulse 2.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .3; }
-}
-
-/* ── Main content ─────────────────────────────────────────────────────── */
+/* ── Main ────────────────────────────────────────── */
 
 .main {
   flex: 1;
   overflow-y: auto;
-  height: 100vh;
   background: var(--bg);
 }
 
-.page { display: none; padding: 28px 32px; max-width: 960px; }
+.page { display: none; padding: 20px 24px; }
 .page.active { display: block; }
 
-/* ── Page header ─────────────────────────────────────────────────────── */
+/* ── Page header ─────────────────────────────────── */
 
-.page-header {
-  margin-bottom: 24px;
+.page-hdr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
 
-.page-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -.3px;
-}
+.page-hdr-left {}
+.page-hdr-title { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.2px; }
+.page-hdr-sub   { font-size: 12px; color: var(--text2); margin-top: 2px; }
 
-.page-sub {
-  font-size: 13px;
-  color: var(--text2);
-  margin-top: 2px;
-}
-
-/* ── Stat cards ─────────────────────────────────────────────────────── */
+/* ── Stat row ────────────────────────────────────── */
 
 .stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-sm);
-  transition: border-color .2s;
-}
-
-.stat-card:hover { border-color: var(--border2); }
-
-.stat-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-
-.stat-icon.blue  { background: rgba(79,142,247,.12); }
-.stat-icon.green { background: rgba(52,211,153,.12); }
-.stat-icon.yellow{ background: rgba(251,191,36,.12); }
-.stat-icon.purple{ background: rgba(167,139,250,.12); }
-
-.stat-num {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -1px;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.stat-num.blue   { color: var(--accent); }
-.stat-num.green  { color: var(--green); }
-.stat-num.yellow { color: var(--yellow); }
-.stat-num.purple { color: var(--purple); }
-
-.stat-label {
-  font-size: 11.5px;
-  color: var(--text2);
-  font-weight: 500;
-}
-
-/* ── Panels ─────────────────────────────────────────────────────────── */
-
-.panel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
-.panel-title {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .4px;
-  text-transform: uppercase;
-  color: var(--text2);
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 14px 16px;
+  border-top: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
 }
 
-/* ── Health rows ─────────────────────────────────────────────────────── */
+.stat-card.blue   { border-top-color: var(--blue);   }
+.stat-card.green  { border-top-color: var(--green);  }
+.stat-card.yellow { border-top-color: var(--yellow); }
+.stat-card.purple { border-top-color: var(--purple); }
 
-.health-item {
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 8px;
+}
+
+.stat-num {
+  font-size: 30px;
+  font-weight: 800;
+  font-family: var(--mono);
+  letter-spacing: -1.5px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.stat-num.blue   { color: var(--blue);   }
+.stat-num.green  { color: var(--green);  }
+.stat-num.yellow { color: var(--yellow); }
+.stat-num.purple { color: var(--purple); }
+
+/* ── Panel grid ─────────────────────────────────── */
+
+.panel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  overflow: hidden;
+}
+
+.panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel2);
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-title svg { opacity: .5; }
+
+.panel-body { padding: 12px 14px; }
+
+/* ── Health rows ─────────────────────────────────── */
+
+.health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
 
-.health-item:last-child { border-bottom: none; }
+.health-row:last-child { border-bottom: none; }
 
-.health-label {
+.health-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   font-size: 13px;
   color: var(--text);
 }
 
-.health-dot {
-  width: 7px;
-  height: 7px;
+.status-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.health-dot.ok      { background: var(--green); box-shadow: 0 0 0 2px rgba(52,211,153,.15); }
-.health-dot.stale   { background: var(--yellow); box-shadow: 0 0 0 2px rgba(251,191,36,.15); }
-.health-dot.missing { background: var(--red); box-shadow: 0 0 0 2px rgba(248,113,113,.15); }
+.status-dot.ok      { background: var(--green);  box-shadow: 0 0 6px rgba(115,191,105,.5); }
+.status-dot.stale   { background: var(--yellow); box-shadow: 0 0 6px rgba(242,204,12,.4); }
+.status-dot.missing { background: var(--red);    box-shadow: 0 0 6px rgba(241,95,95,.4); }
 
-/* ── Badges ─────────────────────────────────────────────────────────── */
+/* ── Badges ──────────────────────────────────────── */
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
-  border-radius: 20px;
+  padding: 2px 8px;
+  border-radius: var(--r);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: .2px;
+  font-family: var(--mono);
+  border: 1px solid transparent;
 }
 
-.badge-ok      { background: var(--green-dim);  color: var(--green);  }
-.badge-stale   { background: var(--yellow-dim); color: var(--yellow); }
-.badge-missing { background: var(--red-dim);    color: var(--red);    }
-.badge-active  { background: var(--accent-dim); color: var(--accent); }
-.badge-closed  { background: var(--surface2);   color: var(--text3);  }
-.badge-num     { background: var(--surface2);   color: var(--text2);  }
+.badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
 
-/* ── Buttons ─────────────────────────────────────────────────────────── */
+.badge-ok      { background: var(--green-bg);  color: var(--green);  border-color: rgba(115,191,105,.2); }
+.badge-ok::before { background: var(--green); }
+.badge-stale   { background: var(--yellow-bg); color: var(--yellow); border-color: rgba(242,204,12,.2); }
+.badge-stale::before { background: var(--yellow); }
+.badge-missing { background: var(--red-bg);    color: var(--red);    border-color: rgba(241,95,95,.2); }
+.badge-missing::before { background: var(--red); }
+.badge-active  { background: var(--blue-bg);   color: var(--blue);   border-color: rgba(87,148,242,.2); }
+.badge-active::before { background: var(--blue); }
+.badge-closed  { background: var(--panel3);    color: var(--text2);  border-color: var(--border); }
+.badge-closed::before { background: var(--text3); }
+.badge-num     { background: var(--panel3);    color: var(--text2);  border-color: var(--border); font-family: var(--mono); }
+.badge-num::before { display: none; }
+
+/* ── Buttons ─────────────────────────────────────── */
 
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  border-radius: var(--r2);
   font-size: 12.5px;
-  font-weight: 600;
-  border: none;
+  font-weight: 500;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: all .15s;
+  transition: all .12s;
+  font-family: var(--sans);
   white-space: nowrap;
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--blue);
   color: #fff;
-  box-shadow: 0 1px 3px rgba(79,142,247,.4);
+  border-color: var(--blue);
+  box-shadow: 0 1px 4px rgba(87,148,242,.3);
 }
-.btn-primary:hover { background: #6a9ef8; box-shadow: 0 2px 8px rgba(79,142,247,.5); }
+.btn-primary:hover { background: #6aa3f5; box-shadow: 0 2px 8px rgba(87,148,242,.4); }
 
 .btn-ghost {
   background: transparent;
   color: var(--text2);
-  border: 1px solid var(--border2);
+  border-color: var(--border2);
 }
-.btn-ghost:hover { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+.btn-ghost:hover { background: var(--panel2); color: var(--text); border-color: var(--border2); }
 
 .btn-danger {
-  background: rgba(248,113,113,.1);
+  background: transparent;
   color: var(--red);
-  border: 1px solid rgba(248,113,113,.2);
+  border-color: rgba(241,95,95,.3);
 }
-.btn-danger:hover { background: rgba(248,113,113,.18); }
-
-.btn-icon {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text2);
-  cursor: pointer;
-  transition: all .15s;
-  font-size: 13px;
-}
-.btn-icon:hover { background: var(--surface3); color: var(--text); border-color: var(--border2); }
-.btn-icon.del:hover { background: var(--red-dim); color: var(--red); border-color: rgba(248,113,113,.25); }
+.btn-danger:hover { background: var(--red-bg); border-color: rgba(241,95,95,.5); }
 
 .btn-row {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
+  padding: 12px 14px;
   border-top: 1px solid var(--border);
+  background: var(--panel2);
 }
 
-/* ── Table ─────────────────────────────────────────────────────────── */
+.btn-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .12s;
+  font-size: 11px;
+  padding: 0;
+}
+
+.btn-icon:hover { background: var(--panel3); color: var(--text); border-color: var(--border2); }
+.btn-icon.del:hover { background: var(--red-bg); color: var(--red); border-color: rgba(241,95,95,.3); }
+
+/* ── Toolbar ─────────────────────────────────────── */
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.search-wrap {
-  position: relative;
-  flex: 1;
-  max-width: 280px;
-}
+.search-wrap { position: relative; flex: 1; max-width: 260px; }
 
-.search-wrap svg {
+.search-wrap .ico {
   position: absolute;
-  left: 10px;
+  left: 9px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text3);
   pointer-events: none;
+  display: flex;
 }
 
 .search-input {
   width: 100%;
-  background: var(--surface);
+  background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 8px 10px 8px 32px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
+  padding: 7px 10px 7px 30px;
+  border-radius: var(--r2);
+  font-size: 12.5px;
+  font-family: var(--sans);
   outline: none;
   transition: border-color .15s;
-  font-family: var(--font);
 }
 
-.search-input:focus { border-color: var(--accent); }
+.search-input:focus { border-color: var(--blue); }
 .search-input::placeholder { color: var(--text3); }
 
+/* ── Data table ──────────────────────────────────── */
+
 .data-table {
-  background: var(--surface);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r2);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
 .table-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 80px 100px 70px;
-  padding: 10px 16px;
-  background: var(--surface2);
+  grid-template-columns: minmax(0,1fr) 80px 110px 72px;
+  padding: 8px 14px;
+  background: var(--panel2);
   border-bottom: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: .5px;
+  letter-spacing: .7px;
   text-transform: uppercase;
   color: var(--text3);
   gap: 12px;
@@ -505,56 +518,58 @@ body {
 
 .table-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 80px 100px 70px;
-  padding: 10px 16px;
+  grid-template-columns: minmax(0,1fr) 80px 110px 72px;
+  padding: 9px 14px;
   border-top: 1px solid var(--border);
   align-items: center;
   gap: 12px;
-  transition: background .12s;
+  transition: background .1s;
 }
 
-.table-row:hover { background: var(--surface2); }
+.table-row:nth-child(even) { background: rgba(255,255,255,.012); }
+.table-row:hover { background: var(--panel2); }
 
 .file-path {
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--text);
+  font-size: 11.5px;
+  color: var(--blue);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chunk-count {
+.chunk-num {
+  font-family: var(--mono);
   font-size: 12px;
   color: var(--text2);
-  font-family: var(--mono);
 }
 
-.row-actions { display: flex; gap: 5px; align-items: center; }
+.row-acts { display: flex; gap: 4px; align-items: center; }
 
-/* ── No data ─────────────────────────────────────────────────────────── */
+/* ── Empty state ─────────────────────────────────── */
 
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 20px;
+  padding: 40px 20px;
+  gap: 8px;
   color: var(--text3);
-  gap: 10px;
 }
 
-.empty svg { opacity: .35; }
-.empty-title { font-size: 13.5px; font-weight: 600; color: var(--text2); }
-.empty-sub   { font-size: 12px; }
+.empty-icon { opacity: .25; }
+.empty-title { font-size: 13px; font-weight: 600; color: var(--text2); }
+.empty-hint  { font-size: 11.5px; color: var(--text3); }
 
-/* ── Sessions ─────────────────────────────────────────────────────────── */
+/* ── Sessions ────────────────────────────────────── */
+
+.session-list { display: flex; flex-direction: column; gap: 8px; }
 
 .session-card {
-  background: var(--surface);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 10px;
+  border-radius: var(--r2);
   overflow: hidden;
   transition: border-color .15s;
 }
@@ -564,16 +579,17 @@ body {
 .session-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
+  padding: 11px 14px;
   cursor: pointer;
-  gap: 12px;
+  gap: 10px;
 }
 
-.session-header-left { min-width: 0; }
+.session-header:hover { background: var(--panel2); }
+
+.session-info { flex: 1; min-width: 0; }
 
 .session-name {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
   overflow: hidden;
@@ -585,44 +601,56 @@ body {
   font-size: 11.5px;
   color: var(--text2);
   margin-top: 2px;
+  font-family: var(--mono);
   display: flex;
-  align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.session-meta-dot { color: var(--text3); }
+.session-meta span { color: var(--text3); }
+.session-meta b { color: var(--text2); font-weight: 400; }
+
+.chevron {
+  color: var(--text3);
+  transition: transform .2s;
+  flex-shrink: 0;
+}
+
+.chevron.open { transform: rotate(90deg); }
 
 .session-body {
   display: none;
   border-top: 1px solid var(--border);
-  padding: 14px 18px;
+  padding: 12px 14px;
+  background: var(--bg2);
 }
 
 .session-body.open { display: block; }
 
-.decision-label {
-  font-size: 10.5px;
+.decisions-label {
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: .8px;
   text-transform: uppercase;
-  letter-spacing: .6px;
   color: var(--text3);
   margin-bottom: 8px;
 }
 
 .decision-item {
-  background: var(--surface2);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  border-left: 3px solid var(--blue);
+  border-radius: var(--r);
+  padding: 7px 11px;
   font-size: 12.5px;
   color: var(--text);
   margin-bottom: 5px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
-/* ── Savings ─────────────────────────────────────────────────────────── */
+/* ── Savings ─────────────────────────────────────── */
 
-.bar-group { margin-bottom: 6px; }
+.bar-row { margin-bottom: 14px; }
 
 .bar-meta {
   display: flex;
@@ -631,329 +659,363 @@ body {
   margin-bottom: 5px;
 }
 
-.bar-label-text { font-size: 12px; color: var(--text2); }
-.bar-value-text { font-size: 12px; font-weight: 600; font-family: var(--mono); }
+.bar-lbl { font-size: 12px; color: var(--text2); }
+.bar-val { font-size: 12px; font-family: var(--mono); font-weight: 600; }
+.bar-val.blue   { color: var(--blue);  }
+.bar-val.muted  { color: var(--text3); }
 
 .bar-track {
-  height: 6px;
-  background: var(--surface2);
+  height: 5px;
+  background: var(--panel3);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .bar-fill {
-  height: 6px;
+  height: 5px;
   border-radius: 3px;
-  transition: width .5s ease;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
 }
 
-.savings-total {
+.savings-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  background: var(--green-bg);
+  border: 1px solid rgba(115,191,105,.2);
+  border-radius: var(--r2);
 }
 
-.savings-total-label { font-size: 12.5px; color: var(--text2); }
+.savings-summary-lbl { font-size: 12px; color: var(--text2); }
 
-.savings-total-value {
-  font-size: 18px;
+.savings-summary-val {
+  font-size: 20px;
   font-weight: 800;
+  font-family: var(--mono);
   color: var(--green);
-  letter-spacing: -.5px;
+  letter-spacing: -1px;
 }
 
-.savings-total-pct {
-  font-size: 11.5px;
+.savings-summary-pct {
+  font-size: 12px;
   color: var(--green);
   opacity: .7;
   margin-left: 4px;
 }
 
-/* Compression selector */
+/* Compression */
+.comp-label {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
 .comp-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  margin-top: 10px;
 }
 
 .comp-btn {
   padding: 9px 4px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
+  border-radius: var(--r);
+  font-size: 11.5px;
   font-weight: 600;
-  background: var(--surface2);
+  font-family: var(--mono);
+  background: var(--panel2);
   border: 1px solid var(--border);
   color: var(--text2);
   cursor: pointer;
   text-align: center;
-  transition: all .15s;
+  transition: all .12s;
+  letter-spacing: .3px;
 }
 
-.comp-btn:hover { border-color: var(--border2); color: var(--text); }
+.comp-btn:hover { border-color: var(--border2); color: var(--text); background: var(--panel3); }
+.comp-btn.active { background: var(--blue-bg); border-color: rgba(87,148,242,.4); color: var(--blue); }
 
-.comp-btn.active {
-  background: var(--accent-dim);
-  border-color: rgba(79,142,247,.4);
-  color: var(--accent);
-}
-
-/* ── Banner ─────────────────────────────────────────────────────────── */
+/* ── Banner ──────────────────────────────────────── */
 
 .banner {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(79,142,247,.08);
-  border: 1px solid rgba(79,142,247,.2);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  font-size: 13px;
+  background: var(--blue-bg);
+  border: 1px solid rgba(87,148,242,.25);
+  border-radius: var(--r2);
+  padding: 10px 14px;
+  font-size: 12.5px;
   color: #7eb8ff;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
-/* ── Toast ─────────────────────────────────────────────────────────── */
+.banner code {
+  font-family: var(--mono);
+  background: rgba(87,148,242,.15);
+  padding: 1px 6px;
+  border-radius: var(--r);
+  font-size: 11.5px;
+}
+
+/* ── Toast ───────────────────────────────────────── */
 
 .toast {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: var(--surface2);
+  bottom: 20px;
+  right: 20px;
+  background: var(--panel2);
   border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 11px 16px;
-  font-size: 13px;
+  border-left: 3px solid var(--blue);
+  border-radius: var(--r2);
+  padding: 10px 14px;
+  font-size: 12.5px;
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
   opacity: 0;
-  transform: translateY(8px);
-  transition: opacity .2s, transform .2s;
+  transform: translateX(12px);
+  transition: opacity .18s, transform .18s;
   pointer-events: none;
-  z-index: 100;
-  max-width: 320px;
+  z-index: 200;
+  max-width: 300px;
 }
 
-.toast.show { opacity: 1; transform: translateY(0); }
+.toast.show { opacity: 1; transform: translateX(0); }
 
-/* ── Spinner ─────────────────────────────────────────────────────────── */
+/* ── Spinner ─────────────────────────────────────── */
 
 .spinner {
   display: inline-block;
-  width: 13px;
-  height: 13px;
-  border: 2px solid var(--border2);
-  border-top-color: var(--accent);
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--border2);
+  border-top-color: var(--blue);
   border-radius: 50%;
-  animation: spin .65s linear infinite;
+  animation: spin .6s linear infinite;
   vertical-align: middle;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Divider ─────────────────────────────────────────────────────────── */
-.divider { height: 1px; background: var(--border); margin: 20px 0; }
-
-/* ── Scrollbar ─────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
+/* ── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+::-webkit-scrollbar-thumb { background: var(--panel3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
 </style>
 </head>
 <body>
 
-<!-- Sidebar -->
-<aside class="sidebar">
-  <div class="sidebar-logo">
-    <div class="logo-mark">CCE</div>
-    <span class="logo-text">Dashboard</span>
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-icon">CCE</div>
+    <span class="topbar-title">Context Engine</span>
   </div>
-
-  <div class="project-badge">
-    <div class="project-dot"></div>
-    <span class="project-name" id="nav-project">loading…</span>
+  <div class="breadcrumb">
+    <span>Dashboards</span>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-project" id="nav-project">loading…</span>
   </div>
+  <div class="topbar-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE&nbsp;&nbsp;5s
+    </div>
+  </div>
+</div>
 
-  <nav class="nav">
-    <div class="nav-section">Menu</div>
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="nav-section-label">General</div>
+
     <button class="nav-item active" onclick="showPage('overview')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Overview
     </button>
+
     <button class="nav-item" onclick="showPage('files')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       Files
-      <span class="badge-count" id="nav-files-count">—</span>
+      <span class="nav-count" id="nav-files-count">—</span>
     </button>
+
     <button class="nav-item" onclick="showPage('sessions')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Sessions
-      <span class="badge-count" id="nav-sessions-count">—</span>
+      <span class="nav-count" id="nav-sessions-count">—</span>
     </button>
+
+    <div class="nav-section-label" style="margin-top:4px">Analytics</div>
+
     <button class="nav-item" onclick="showPage('savings')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Savings
     </button>
-  </nav>
 
-  <div class="sidebar-footer">
-    <div class="poll-indicator">
-      <div class="poll-dot"></div>
-      Live — updates every 5s
-    </div>
-  </div>
-</aside>
+    <div class="sidebar-spacer"></div>
+  </aside>
 
-<!-- Main -->
-<main class="main">
+  <!-- Main content -->
+  <main class="main">
 
-  <!-- Overview -->
-  <div class="page active" id="page-overview">
-    <div class="page-header">
-      <div class="page-title">Overview</div>
-      <div class="page-sub">Index health and recent activity</div>
-    </div>
-
-    <div id="uninit-banner" class="banner" style="display:none">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Index not initialised — run <code style="font-family:var(--mono);background:rgba(79,142,247,.15);padding:1px 6px;border-radius:4px;font-size:12px">cce init</code> in your project first.
-    </div>
-
-    <div class="stat-row">
-      <div class="stat-card">
-        <div class="stat-icon blue">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4f8ef7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16,3 21,3 21,8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21,16 21,21 16,21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+    <!-- Overview -->
+    <div class="page active" id="page-overview">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <div class="page-hdr-title">Overview</div>
+          <div class="page-hdr-sub">Index health, chunk metrics and recent activity</div>
         </div>
-        <div class="stat-num blue" id="stat-chunks">—</div>
-        <div class="stat-label">Chunks indexed</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon green">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-        </div>
-        <div class="stat-num green" id="stat-files">—</div>
-        <div class="stat-label">Files indexed</div>
+
+      <div id="uninit-banner" class="banner" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Index not initialised — run <code>cce init</code> then <code>cce index</code> in your project directory.
       </div>
-      <div class="stat-card">
-        <div class="stat-icon yellow">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+
+      <div class="stat-row">
+        <div class="stat-card blue">
+          <div class="stat-label">Chunks indexed</div>
+          <div class="stat-num blue" id="stat-chunks">—</div>
         </div>
-        <div class="stat-num yellow" id="stat-queries">—</div>
-        <div class="stat-label">Queries run</div>
+        <div class="stat-card green">
+          <div class="stat-label">Files indexed</div>
+          <div class="stat-num green" id="stat-files">—</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Queries run</div>
+          <div class="stat-num yellow" id="stat-queries">—</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-label">Tokens saved</div>
+          <div class="stat-num purple" id="stat-saved">—</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon purple">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/></svg>
+
+      <div class="panel-row">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Index Health
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="health-rows"><div class="empty"><div class="spinner"></div></div></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="doReindex(false)" id="btn-reindex-changed">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Reindex changed
+            </button>
+            <button class="btn btn-ghost" onclick="doReindex(true)" id="btn-reindex-full">Full reindex</button>
+          </div>
         </div>
-        <div class="stat-num purple" id="stat-saved">—</div>
-        <div class="stat-label">Tokens saved</div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Recent Sessions
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="recent-sessions"><div class="empty"><div class="spinner"></div></div></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="panel-row">
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Index Health</span>
+    <!-- Files -->
+    <div class="page" id="page-files">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <div class="page-hdr-title">Files</div>
+          <div class="page-hdr-sub">Indexed files with staleness status and chunk counts</div>
         </div>
-        <div id="health-rows">
-          <div class="empty"><div class="spinner"></div></div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="doReindex(false)" id="btn-reindex-changed">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23,4 23,10 17,10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Reindex changed
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="doExport()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
           </button>
-          <button class="btn btn-ghost" onclick="doReindex(true)" id="btn-reindex-full">Full reindex</button>
+          <button class="btn btn-danger" onclick="doClear()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            Clear index
+          </button>
         </div>
       </div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="ico">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input class="search-input" placeholder="Filter by path…" oninput="filterFiles(this.value)">
+        </div>
+      </div>
+      <div class="data-table">
+        <div class="table-head"><div>Path</div><div>Chunks</div><div>Status</div><div>Actions</div></div>
+        <div id="file-rows"><div class="empty"><div class="spinner"></div></div></div>
+      </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Recent Sessions</span>
-        </div>
-        <div id="recent-sessions">
-          <div class="empty"><div class="spinner"></div></div>
+    <!-- Sessions -->
+    <div class="page" id="page-sessions">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <div class="page-hdr-title">Sessions</div>
+          <div class="page-hdr-sub">Captured Claude coding sessions and architectural decisions</div>
         </div>
       </div>
+      <div id="session-list"><div class="empty"><div class="spinner"></div></div></div>
     </div>
-  </div>
 
-  <!-- Files -->
-  <div class="page" id="page-files">
-    <div class="page-header">
-      <div class="page-title">Files</div>
-      <div class="page-sub">All indexed files and their status</div>
-    </div>
-    <div class="toolbar">
-      <div class="search-wrap">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-input" placeholder="Filter files…" oninput="filterFiles(this.value)" id="file-filter">
+    <!-- Savings -->
+    <div class="page" id="page-savings">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <div class="page-hdr-title">Savings</div>
+          <div class="page-hdr-sub">Token reduction metrics and output compression settings</div>
+        </div>
       </div>
-      <button class="btn btn-ghost" onclick="doExport()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Export JSON
-      </button>
-      <button class="btn btn-danger" onclick="doClear()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-        Clear index
-      </button>
-    </div>
-    <div class="data-table">
-      <div class="table-head">
-        <div>File path</div><div>Chunks</div><div>Status</div><div>Actions</div>
+      <div class="panel-row">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Token Usage
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="savings-detail"><div class="empty"><div class="spinner"></div></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+              Output Compression
+            </div>
+          </div>
+          <div class="panel-body">
+            <p class="comp-label">Controls how Claude compresses its responses. Higher levels reduce output token usage at the cost of verbosity.</p>
+            <div class="comp-grid" id="comp-buttons">
+              <button class="comp-btn" onclick="setCompression('off')">off</button>
+              <button class="comp-btn" onclick="setCompression('lite')">lite</button>
+              <button class="comp-btn" onclick="setCompression('standard')">standard</button>
+              <button class="comp-btn" onclick="setCompression('max')">max</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="file-rows">
-        <div class="empty"><div class="spinner"></div></div>
-      </div>
     </div>
-  </div>
 
-  <!-- Sessions -->
-  <div class="page" id="page-sessions">
-    <div class="page-header">
-      <div class="page-title">Sessions</div>
-      <div class="page-sub">Past Claude coding sessions and captured decisions</div>
-    </div>
-    <div id="session-list">
-      <div class="empty"><div class="spinner"></div></div>
-    </div>
-  </div>
-
-  <!-- Savings -->
-  <div class="page" id="page-savings">
-    <div class="page-header">
-      <div class="page-title">Savings</div>
-      <div class="page-sub">Token usage and output compression settings</div>
-    </div>
-    <div class="panel-row">
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Token Usage</span>
-        </div>
-        <div id="savings-detail">
-          <div class="empty"><div class="spinner"></div></div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Output Compression</span>
-        </div>
-        <p style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px;">Controls how Claude formats its responses. Higher compression reduces output tokens.</p>
-        <div class="comp-grid" id="comp-buttons">
-          <button class="comp-btn" onclick="setCompression('off')">off</button>
-          <button class="comp-btn" onclick="setCompression('lite')">lite</button>
-          <button class="comp-btn" onclick="setCompression('standard')">standard</button>
-          <button class="comp-btn" onclick="setCompression('max')">max</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-</main>
+  </main>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -963,8 +1025,6 @@ var allFiles = [];
 var currentLevel = 'standard';
 var PAGES = ['overview','files','sessions','savings'];
 
-// ── Navigation ──────────────────────────────────────────────────────────
-
 function showPage(name) {
   PAGES.forEach(function(p) {
     document.getElementById('page-' + p).classList.toggle('active', p === name);
@@ -972,52 +1032,44 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(function(el, i) {
     el.classList.toggle('active', PAGES[i] === name);
   });
-  if (name === 'files') loadFiles();
+  if (name === 'files')    loadFiles();
   if (name === 'sessions') loadSessions();
-  if (name === 'savings') loadSavings();
+  if (name === 'savings')  loadSavings();
 }
-
-// ── Toast ────────────────────────────────────────────────────────────────
 
 function toast(msg) {
   var el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(el._t);
-  el._t = setTimeout(function() { el.classList.remove('show'); }, 2800);
+  el._t = setTimeout(function() { el.classList.remove('show'); }, 3000);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
-
 function reltime(ts) {
-  var diff = Math.floor(Date.now() / 1000 - ts);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  return Math.floor(diff / 86400) + 'd ago';
+  var d = Math.floor(Date.now()/1000 - ts);
+  if (d < 60)    return 'just now';
+  if (d < 3600)  return Math.floor(d/60) + 'm ago';
+  if (d < 86400) return Math.floor(d/3600) + 'h ago';
+  return Math.floor(d/86400) + 'd ago';
 }
 
 function fmt(n) { return Number(n).toLocaleString(); }
 
-function icon(name) {
-  var icons = {
-    refresh: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23,4 23,10 17,10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-    trash:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
-  };
-  return icons[name] || '';
-}
-
-// ── Status (polling) ─────────────────────────────────────────────────────
+var SVG = {
+  refresh: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+  trash:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+  chevron: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+};
 
 async function loadStatus() {
   try {
     var r = await fetch(API + '/api/status');
     var d = await r.json();
-    document.getElementById('nav-project').textContent = d.project || '';
-    document.getElementById('stat-chunks').textContent  = fmt(d.chunks);
-    document.getElementById('stat-files').textContent   = fmt(d.files);
-    document.getElementById('stat-queries').textContent = fmt(d.queries);
-    document.getElementById('stat-saved').textContent   = d.tokens_saved_pct + '%';
+    document.getElementById('nav-project').textContent   = d.project || '';
+    document.getElementById('stat-chunks').textContent   = fmt(d.chunks);
+    document.getElementById('stat-files').textContent    = fmt(d.files);
+    document.getElementById('stat-queries').textContent  = fmt(d.queries);
+    document.getElementById('stat-saved').textContent    = d.tokens_saved_pct + '%';
     document.getElementById('uninit-banner').style.display = d.initialized ? 'none' : 'flex';
     currentLevel = d.output_level;
     refreshCompButtons(d.output_level);
@@ -1026,52 +1078,47 @@ async function loadStatus() {
 }
 
 async function loadOverviewPanels() {
-  // Health
   try {
     var r = await fetch(API + '/api/files');
     var files = await r.json();
-    var ok      = files.filter(function(f){ return f.status==='ok'; }).length;
-    var stale   = files.filter(function(f){ return f.status==='stale'; }).length;
-    var missing = files.filter(function(f){ return f.status==='missing'; }).length;
     document.getElementById('nav-files-count').textContent = files.length;
-
-    var rows = [['Up to date', ok, 'ok'], ['Stale', stale, 'stale'], ['Missing', missing, 'missing']];
-    document.getElementById('health-rows').innerHTML = rows.map(function(row) {
-      return '<div class="health-item">' +
-        '<div class="health-label"><span class="health-dot ' + row[2] + '"></span>' + row[0] + '</div>' +
-        '<span class="badge badge-num">' + row[1] + ' files</span>' +
-        '</div>';
-    }).join('');
+    var ok      = files.filter(function(f){ return f.status==='ok';      }).length;
+    var stale   = files.filter(function(f){ return f.status==='stale';   }).length;
+    var missing = files.filter(function(f){ return f.status==='missing'; }).length;
+    document.getElementById('health-rows').innerHTML =
+      [['ok','Up to date',ok],['stale','Stale',stale],['missing','Missing',missing]].map(function(row) {
+        return '<div class="health-row">' +
+          '<div class="health-left"><span class="status-dot '+row[0]+'"></span>'+row[1]+'</div>' +
+          '<span class="badge badge-num">'+row[2]+'</span>' +
+          '</div>';
+      }).join('');
   } catch(e) {}
 
-  // Recent sessions
   try {
     var r2 = await fetch(API + '/api/sessions');
     var sessions = await r2.json();
     document.getElementById('nav-sessions-count').textContent = sessions.length;
     var el = document.getElementById('recent-sessions');
     if (!sessions.length) {
-      el.innerHTML = '<div class="empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="empty-title">No sessions yet</span></div>';
+      el.innerHTML = '<div class="empty"><span class="empty-title">No sessions yet</span></div>';
       return;
     }
-    el.innerHTML = sessions.slice(0, 5).map(function(s) {
+    el.innerHTML = sessions.slice(0,5).map(function(s) {
+      var decs  = (s.decisions||[]).length;
+      var areas = (s.code_areas||[]).length;
       var isActive = !s.ended_at;
-      var decs = (s.decisions || []).length;
-      var areas = (s.code_areas || []).length;
-      return '<div class="health-item">' +
+      return '<div class="health-row">' +
         '<div>' +
-        '<div style="font-size:13px;font-weight:600;color:var(--text)">' + (s.project || s.id) + '</div>' +
-        '<div style="font-size:11.5px;color:var(--text2);margin-top:2px">' +
-          decs + ' decisions &middot; ' + areas + ' code areas' +
-          (s.started_at ? ' &middot; ' + reltime(s.started_at) : '') +
-        '</div></div>' +
-        '<span class="badge ' + (isActive ? 'badge-active' : 'badge-closed') + '">' + (isActive ? 'active' : 'closed') + '</span>' +
+          '<div style="font-size:12.5px;font-weight:600;color:var(--text)">'+(s.project||s.id)+'</div>' +
+          '<div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:2px">'+
+            decs+' dec &middot; '+areas+' areas'+(s.started_at?' &middot; '+reltime(s.started_at):'')+
+          '</div>'+
+        '</div>' +
+        '<span class="badge '+(isActive?'badge-active':'badge-closed')+'">'+(isActive?'active':'closed')+'</span>' +
         '</div>';
     }).join('');
   } catch(e) {}
 }
-
-// ── Files ────────────────────────────────────────────────────────────────
 
 async function loadFiles() {
   var el = document.getElementById('file-rows');
@@ -1081,7 +1128,7 @@ async function loadFiles() {
     allFiles = await r.json();
     renderFiles(allFiles);
   } catch(e) {
-    el.innerHTML = '<div class="empty"><span class="empty-title">Failed to load files</span></div>';
+    el.innerHTML = '<div class="empty"><span class="empty-title">Failed to load</span></div>';
   }
 }
 
@@ -1089,20 +1136,20 @@ function renderFiles(files) {
   var el = document.getElementById('file-rows');
   if (!files.length) {
     el.innerHTML = '<div class="empty">' +
-      '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>' +
-      '<span class="empty-title">No files indexed yet</span>' +
-      '<span class="empty-sub">Run <code style="font-family:var(--mono);font-size:11px">cce index</code> to get started</span>' +
+      '<svg class="empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+      '<span class="empty-title">No files indexed</span>' +
+      '<span class="empty-hint">Run <code style="font-family:var(--mono)">cce index</code> to index your project</span>' +
       '</div>';
     return;
   }
   el.innerHTML = files.map(function(f) {
     return '<div class="table-row">' +
-      '<div class="file-path" title="' + f.path + '">' + f.path + '</div>' +
-      '<div class="chunk-count">' + f.chunks + '</div>' +
-      '<div><span class="badge badge-' + f.status + '">' + f.status + '</span></div>' +
-      '<div class="row-actions">' +
-        '<button class="btn-icon" title="Reindex" onclick="reindexFile(' + JSON.stringify(f.path) + ')">' + icon('refresh') + '</button>' +
-        '<button class="btn-icon del" title="Remove" onclick="deleteFile(' + JSON.stringify(f.path) + ')">' + icon('trash') + '</button>' +
+      '<div class="file-path" title="'+f.path+'">'+f.path+'</div>' +
+      '<div class="chunk-num">'+f.chunks+'</div>' +
+      '<div><span class="badge badge-'+f.status+'">'+f.status+'</span></div>' +
+      '<div class="row-acts">' +
+        '<button class="btn-icon" title="Reindex" onclick="reindexFile('+JSON.stringify(f.path)+')">'+SVG.refresh+'</button>' +
+        '<button class="btn-icon del" title="Remove" onclick="deleteFile('+JSON.stringify(f.path)+')">'+SVG.trash+'</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -1113,8 +1160,6 @@ function filterFiles(q) {
   renderFiles(q ? allFiles.filter(function(f){ return f.path.toLowerCase().includes(q); }) : allFiles);
 }
 
-// ── Sessions ─────────────────────────────────────────────────────────────
-
 async function loadSessions() {
   var el = document.getElementById('session-list');
   el.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
@@ -1122,45 +1167,49 @@ async function loadSessions() {
     var r = await fetch(API + '/api/sessions');
     var sessions = await r.json();
     if (!sessions.length) {
-      el.innerHTML = '<div class="empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="empty-title">No sessions recorded</span><span class="empty-sub">Sessions are captured automatically during Claude coding sessions</span></div>';
+      el.innerHTML = '<div class="empty">' +
+        '<svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+        '<span class="empty-title">No sessions recorded</span>' +
+        '<span class="empty-hint">Sessions are captured during Claude coding sessions</span>' +
+        '</div>';
       return;
     }
-    el.innerHTML = sessions.map(function(s, i) {
+    el.innerHTML = '<div class="session-list">' + sessions.map(function(s, i) {
       var isActive = !s.ended_at;
-      var decs = s.decisions || [];
+      var decs  = s.decisions || [];
       var areas = s.code_areas || [];
       return '<div class="session-card">' +
-        '<div class="session-header" onclick="toggleSession(' + i + ')">' +
-          '<div class="session-header-left">' +
-            '<div class="session-name">' + (s.project || s.id) + '</div>' +
+        '<div class="session-header" onclick="toggleSession('+i+')">' +
+          '<div class="chevron" id="chev-'+i+'">'+SVG.chevron+'</div>' +
+          '<div class="session-info">' +
+            '<div class="session-name">'+(s.project||s.id)+'</div>' +
             '<div class="session-meta">' +
-              '<span>' + decs.length + ' decisions</span>' +
-              '<span class="session-meta-dot">&middot;</span>' +
-              '<span>' + areas.length + ' code areas</span>' +
-              (s.started_at ? '<span class="session-meta-dot">&middot;</span><span>' + reltime(s.started_at) + '</span>' : '') +
+              '<b>'+decs.length+'</b><span>decisions</span>' +
+              '<b>'+areas.length+'</b><span>code areas</span>' +
+              (s.started_at ? '<b>'+reltime(s.started_at)+'</b>' : '') +
             '</div>' +
           '</div>' +
-          '<span class="badge ' + (isActive ? 'badge-active' : 'badge-closed') + '">' + (isActive ? 'active' : 'closed') + '</span>' +
+          '<span class="badge '+(isActive?'badge-active':'badge-closed')+'">'+(isActive?'active':'closed')+'</span>' +
         '</div>' +
         (decs.length ?
-          '<div class="session-body" id="sb-' + i + '">' +
-            '<div class="decision-label">Decisions</div>' +
-            decs.map(function(d){ return '<div class="decision-item">' + d.decision + '</div>'; }).join('') +
+          '<div class="session-body" id="sb-'+i+'">' +
+            '<div class="decisions-label">Decisions</div>' +
+            decs.map(function(d){ return '<div class="decision-item">'+d.decision+'</div>'; }).join('') +
           '</div>'
         : '') +
       '</div>';
-    }).join('');
+    }).join('') + '</div>';
   } catch(e) {
-    el.innerHTML = '<div class="empty"><span class="empty-title">Failed to load sessions</span></div>';
+    el.innerHTML = '<div class="empty"><span class="empty-title">Failed to load</span></div>';
   }
 }
 
 function toggleSession(i) {
-  var el = document.getElementById('sb-' + i);
-  if (el) el.classList.toggle('open');
+  var body = document.getElementById('sb-' + i);
+  var chev = document.getElementById('chev-' + i);
+  if (body) { body.classList.toggle('open'); }
+  if (chev) { chev.classList.toggle('open'); }
 }
-
-// ── Savings ──────────────────────────────────────────────────────────────
 
 async function loadSavings() {
   try {
@@ -1168,24 +1217,23 @@ async function loadSavings() {
     var d = await r.json();
     var el = document.getElementById('savings-detail');
     var usedPct = d.baseline_tokens > 0 ? Math.round(d.served_tokens / d.baseline_tokens * 100) : 0;
-    var savedPct = d.savings_pct || 0;
     el.innerHTML =
-      '<div class="bar-group">' +
-        '<div class="bar-meta"><span class="bar-label-text">With CCE</span><span class="bar-value-text" style="color:var(--accent)">' + fmt(d.served_tokens || 0) + '</span></div>' +
-        '<div class="bar-track"><div class="bar-fill" style="background:var(--accent);width:' + usedPct + '%"></div></div>' +
+      '<div class="bar-row">' +
+        '<div class="bar-meta"><span class="bar-lbl">With CCE</span><span class="bar-val blue">'+fmt(d.served_tokens||0)+' tokens</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" style="background:var(--blue);width:'+usedPct+'%"></div></div>' +
       '</div>' +
-      '<div class="bar-group">' +
-        '<div class="bar-meta"><span class="bar-label-text">Without CCE</span><span class="bar-value-text" style="color:var(--text2)">' + fmt(d.baseline_tokens || 0) + '</span></div>' +
-        '<div class="bar-track"><div class="bar-fill" style="background:var(--surface3);width:100%"></div></div>' +
+      '<div class="bar-row">' +
+        '<div class="bar-meta"><span class="bar-lbl">Without CCE</span><span class="bar-val muted">'+fmt(d.baseline_tokens||0)+' tokens</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" style="background:var(--panel3);width:100%"></div></div>' +
       '</div>' +
-      '<div class="savings-total">' +
+      '<div class="savings-summary">' +
         '<div>' +
-          '<div class="savings-total-label">Total saved</div>' +
-          '<div style="font-size:11.5px;color:var(--text3);margin-top:1px">' + fmt(d.queries||0) + ' queries</div>' +
+          '<div class="savings-summary-lbl">Total tokens saved</div>' +
+          '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--mono)">'+fmt(d.queries||0)+' queries processed</div>' +
         '</div>' +
-        '<div style="text-align:right">' +
-          '<span class="savings-total-value">' + fmt(d.tokens_saved || 0) + '</span>' +
-          '<span class="savings-total-pct">(' + savedPct + '%)</span>' +
+        '<div>' +
+          '<span class="savings-summary-val">'+fmt(d.tokens_saved||0)+'</span>' +
+          '<span class="savings-summary-pct">('+( d.savings_pct||0)+'%)</span>' +
         '</div>' +
       '</div>';
   } catch(e) {}
@@ -1197,8 +1245,6 @@ function refreshCompButtons(level) {
     btn.classList.toggle('active', btn.textContent.trim() === level);
   });
 }
-
-// ── Actions ──────────────────────────────────────────────────────────────
 
 async function doReindex(full) {
   var id = full ? 'btn-reindex-full' : 'btn-reindex-changed';
@@ -1213,7 +1259,7 @@ async function doReindex(full) {
     });
     var d = await r.json();
     if (d.errors && d.errors.length) toast('Error: ' + d.errors[0]);
-    else toast('Indexed ' + d.indexed_files.length + ' files (' + fmt(d.total_chunks) + ' chunks)');
+    else toast('Indexed ' + d.indexed_files.length + ' files — ' + fmt(d.total_chunks) + ' chunks');
     loadStatus();
   } catch(e) { toast('Reindex failed'); }
   finally { btn.disabled = false; btn.innerHTML = orig; }
@@ -1221,14 +1267,14 @@ async function doReindex(full) {
 
 async function reindexFile(path) {
   try {
-    await fetch(API + '/api/reindex/' + encodeURIComponent(path), {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    await fetch(API + '/api/reindex/' + encodeURIComponent(path), {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     toast('Reindexed ' + path);
     loadFiles(); loadStatus();
   } catch(e) { toast('Failed'); }
 }
 
 async function deleteFile(path) {
-  if (!confirm('Remove "' + path + '" from the index?')) return;
+  if (!confirm('Remove "' + path + '" from index?')) return;
   try {
     await fetch(API + '/api/files/' + encodeURIComponent(path), {method:'DELETE'});
     toast('Removed ' + path);
@@ -1237,7 +1283,7 @@ async function deleteFile(path) {
 }
 
 async function doClear() {
-  if (!confirm('Clear the entire index? This cannot be undone.')) return;
+  if (!confirm('Clear entire index? This cannot be undone.')) return;
   try {
     await fetch(API + '/api/clear', {method:'POST'});
     toast('Index cleared');
@@ -1255,11 +1301,9 @@ async function setCompression(level) {
     });
     currentLevel = level;
     refreshCompButtons(level);
-    toast('Compression set to ' + level);
+    toast('Compression: ' + level);
   } catch(e) { toast('Failed'); }
 }
-
-// ── Boot ─────────────────────────────────────────────────────────────────
 
 loadStatus();
 setInterval(loadStatus, 5000);
