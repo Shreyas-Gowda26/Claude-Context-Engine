@@ -1,6 +1,7 @@
 """Embedding generation using ONNX Runtime."""
 import logging
 import os
+import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -11,6 +12,9 @@ from transformers import AutoTokenizer
 from context_engine.models import Chunk
 
 log = logging.getLogger(__name__)
+
+# Suppress noisy PyTorch JIT tracing warnings emitted during ONNX export
+warnings.filterwarnings("ignore", message=".*torch.tensor results are registered as constants.*")
 
 _DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
