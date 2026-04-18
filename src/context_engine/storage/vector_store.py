@@ -139,3 +139,21 @@ class VectorStore:
         if not results:
             return None
         return self._row_to_chunk(results[0])
+
+    async def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[Chunk]:
+        if not chunk_ids:
+            return []
+        with self._lock:
+            if self._table is None:
+                try:
+                    self._table = self._db.open_table(TABLE_NAME)
+                except Exception:
+                    return []
+            quoted = ", ".join(_escape_sql_literal(i) for i in chunk_ids)
+            results = (
+                self._table.search()
+                .where(f"id IN ({quoted})")
+                .limit(len(chunk_ids))
+                .to_list()
+            )
+        return [self._row_to_chunk(r) for r in results]
