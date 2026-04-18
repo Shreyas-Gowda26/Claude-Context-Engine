@@ -1,6 +1,7 @@
 """Embedding generation using sentence-transformers."""
 import logging
 import os
+from functools import lru_cache
 from pathlib import Path
 
 from sentence_transformers import SentenceTransformer
@@ -74,13 +75,17 @@ class Embedder:
                 f"or set HF_HOME to point at an existing cache. Original error: {exc}"
             ) from exc
 
-    def embed(self, chunks: list[Chunk]) -> None:
+    def embed(self, chunks: list[Chunk], batch_size: int = 32) -> None:
         if not chunks:
             return
-        texts = [c.content for c in chunks]
-        embeddings = self._model.encode(texts, show_progress_bar=False)
-        for chunk, emb in zip(chunks, embeddings):
-            chunk.embedding = emb.tolist()
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            texts = [c.content for c in batch]
+            embeddings = self._model.encode(texts, show_progress_bar=False)
+            for chunk, emb in zip(batch, embeddings):
+                chunk.embedding = emb.tolist()
 
-    def embed_query(self, query: str) -> list[float]:
-        return self._model.encode(query, show_progress_bar=False).tolist()
+    @lru_cache(maxsize=256)
+    def embed_query(self, query: str) -> tuple:
+        vec = self._model.encode(query, show_progress_bar=False).tolist()
+        return tuple(vec)
