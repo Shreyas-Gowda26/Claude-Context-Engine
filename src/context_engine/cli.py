@@ -393,6 +393,10 @@ def clear(ctx: click.Context, yes: bool) -> None:
     if manifest_path.exists():
         manifest_path.write_text(json.dumps({"__schema_version": 2, "files": {}}))
 
+    # Reset stats
+    stats_path = storage_dir / "stats.json"
+    stats_path.write_text(json.dumps({"queries": 0, "raw_tokens": 0, "served_tokens": 0, "full_file_tokens": 0}))
+
     click.echo(f"Cleared index data for '{project_name}'. Run 'cce index' to re-index.")
 
 
