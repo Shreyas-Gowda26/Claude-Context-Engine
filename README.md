@@ -1,310 +1,328 @@
-<p align="center">
-  <img src="docs/logo.svg" alt="Claude Context Engine" width="160">
-</p>
+ <p align="center">
+    <img src="docs/logo.svg" alt="Claude Context Engine" width="160">
+  </p>
 
-<h1 align="center">Claude Context Engine</h1>
+  <h1 align="center">Claude Context Engine</h1>
 
-<p align="center">
-  <strong>Index your codebase. Compress context. Cut token costs by 70%.</strong>
-</p>
+  <p align="center">
+    <strong>Make Claude understand your codebase without wasting tokens.</strong>
+  </p>
 
-<p align="center">
-  <a href="https://pypi.org/project/claude-context-engine/"><img src="https://img.shields.io/pypi/v/claude-context-engine?color=blue&label=PyPI" alt="PyPI"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
-  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
-  <a href="https://github.com/fazleelahhee/Claude-Context-Engine"><img src="https://img.shields.io/github/stars/fazleelahhee/Claude-Context-Engine?style=social" alt="Stars"></a>
-</p>
+  <p align="center">
+    Claude Context Engine indexes your repository, retrieves only the most relevant code for a task,
+    and helps Claude Code avoid re-reading files, rediscovering architecture, and burning context on unnecessary input.
+  </p>
 
----
+  <p align="center">
+    <a href="https://pypi.org/project/claude-context-engine/"><img src="https://img.shields.io/pypi/v/claude-context-engine?
+  color=blue&label=PyPI" alt="PyPI"></a>
+    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
+    <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
+    <a href="https://github.com/fazleelahhee/Claude-Context-Engine"><img src="https://img.shields.io/github/stars/fazleelahhee/Claude-
+  Context-Engine?style=social" alt="Stars"></a>
+  </p>
 
-## Get Running in 60 Seconds
+  ---
 
-**Step 1 — Install**
-```bash
-brew tap fazleelahhee/tap && brew install claude-context-engine  # macOS
-# or
-pip install claude-context-engine                                 # all platforms
-```
+  ## Overview
 
-**Step 2 — Index your project**
-```bash
-cd /path/to/your/project
-cce init
-```
+  Claude Context Engine is a local-first context engine for Claude Code. It indexes your codebase, breaks code into meaningful chunks,
+  and retrieves only the most relevant context for each task.
 
-`cce init` handles everything: indexes your codebase, installs git hooks, and writes the MCP config to `.mcp.json` automatically.
+  The goal is straightforward: give Claude the minimum correct context needed to produce a better answer.
 
-**Step 3 — Restart Claude Code**
+  This helps developers avoid three common problems:
 
-Done. Claude now searches your indexed codebase instead of re-reading files every session.
+  - pasting too much code and wasting tokens
+  - pasting too little and getting weak answers
+  - repeatedly explaining the same repository structure
 
----
+  ## Key Benefits
 
-## Token Savings in Action
+  - Lower token usage through targeted context retrieval
+  - Better first-pass answers from Claude Code
+  - Less manual context sharing and prompt repetition
+  - Local-first workflow with optional remote server mode
+  - Semantic indexing designed for real repositories, not generic demos
 
-Run `cce savings` to see how much context CCE is saving you:
+  ## Quick Start
 
-```
-$ cce savings
+  ### 1. Install
 
-     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   my-project · 38 queries
-     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   14.2k/48.0k tokens used (30%)
-     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶
-     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   Token savings
-     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   ⛁ With CCE:     14,200 tokens  (30%)
-     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   ⛶ Tokens saved: 33,800 tokens  (70%)
-```
+  ```bash
+  brew tap fazleelahhee/tap && brew install claude-context-engine  # macOS
+  # or
+  pip install claude-context-engine                                 # all platforms
 
-The savings compound the more you use it. Each query returns only what Claude needs, not the entire file.
+  ### 2. Index Your Project
 
----
+  cd /path/to/your/project
+  cce init
 
-## Why?
+  cce init handles the initial setup automatically:
 
-Every Claude Code session re-reads your files, re-discovers your architecture, and burns tokens on code it has seen before.
+  - indexes your codebase
+  - installs git hooks
+  - writes the MCP config to .mcp.json
 
-| | Without CCE | With CCE |
-|---|---|---|
-| Session startup | ~50k tokens | ~10k tokens |
-| Finding a function | ~8k tokens | ~800 tokens |
-| Cost per session (Opus 4) | ~$2.25 | ~$0.68 |
-| Remembers past sessions | No | Yes |
+  ### 3. Restart Claude Code
 
-**70% cost reduction. Zero cloud. Everything stays local.**
+  Once restarted, Claude can search your indexed codebase instead of re-reading files every session.
 
----
+  ## Before and After
 
-## CLI Commands
+  | | Without CCE | With CCE |
+  |---|---|---|
+  | Session startup | Claude re-reads files and project structure | Claude uses indexed context |
+  | Finding a function | Large prompt or manual file sharing | Targeted retrieval |
+  | Token usage | High and repetitive | Smaller and more focused |
+  | Cross-session memory | None by default | Supported |
+  | Workflow | Re-explain the repo repeatedly | Ask directly and retrieve context |
 
-| Command | What It Does |
-|---------|-------------|
-| `cce init` | One-time setup: index, git hooks, MCP config |
-| `cce index` | Re-index changed files |
-| `cce index --full` | Force a full re-index |
-| `cce status` | Index config and token savings summary |
-| `cce savings` | Visual savings report |
-| `cce savings --all` | Savings across all indexed projects |
-| `cce savings --json` | Machine-readable savings output |
-| `cce serve` | Start MCP server (Claude Code does this automatically) |
+  Claude Context Engine is designed to reduce prompt bloat while improving the quality of context Claude receives.
 
-## MCP Tools (inside Claude Code)
+  ## Token Savings
 
-Once connected, Claude gets these tools automatically:
+  Run cce savings to see how much context CCE is saving:
 
-| Tool | Description |
-|------|-------------|
-| `context_search` | Semantic search across your indexed codebase |
-| `expand_chunk` | Get full source for a compressed chunk |
-| `session_recall` | Recall past decisions and code-area notes |
-| `record_decision` | Record a decision for future recall |
-| `record_code_area` | Record a file and description of work done |
-| `index_status` | Check index status and real token-savings stats |
-| `reindex` | Trigger re-indexing of a file or full project |
-| `set_output_compression` | Adjust response verbosity (off/lite/standard/max) |
+  $ cce savings
 
----
+       ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   my-project · 38 queries
+       ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   14.2k/48.0k tokens used (30%)
+       ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶
+       ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   Token savings
+       ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   ⛁ With CCE:     14,200 tokens  (30%)
+       ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶   ⛶ Tokens saved: 33,800 tokens  (70%)
 
-<details>
-<summary><h2>How Token Compression Works</h2></summary>
+  Savings grow over time because Claude receives only what it needs, not entire files or repeated context dumps.
 
-### Layer 1: AST-Aware Chunking
+  Exact savings depend on project size, query pattern, and compression settings, but the objective remains consistent: better context
+  with fewer tokens.
 
-Tree-sitter parses your code into semantic chunks (functions, classes, modules). No raw file reads.
+  ## How It Works
 
-```
-Raw file (800 lines, ~12k tokens)
-  → 15 function chunks + 3 class chunks
-  → Only relevant chunks retrieved, not the whole file
-```
+  ### 1. Code Indexing
 
-### Layer 2: LLM Summarization (Ollama, auto-detected)
+  CCE indexes your repository and builds a searchable representation of the codebase.
 
-If Ollama is running locally, each chunk is summarized using type-specific prompts:
+  ### 2. Semantic Chunking
 
-| Chunk Type | Example Output |
-|-----------|----------------|
-| Function/Class | `"process_payment(order, method): Validates payment, charges via Stripe, returns PaymentResult."` |
-| Architecture | `"API gateway — routes HTTP to service handlers, applies auth + rate limiting."` |
-| Decision | `"Chose PostgreSQL over MongoDB. Reason: relational queries for billing."` |
+  Instead of treating files as flat text, CCE splits code into meaningful units such as functions, classes, and modules.
 
-A quality checker ensures 40%+ of key identifiers survive compression.
+  Raw file (800 lines, ~12k tokens)
+    → 15 function chunks + 3 class chunks
+    → Only relevant chunks retrieved, not the whole file
 
-### Layer 3: Smart Truncation (Default / Fallback)
+  ### 3. Compression
 
-Without Ollama: extracts function signatures and docstrings, drops bodies.
+  CCE can reduce context size in two ways:
 
-```python
-# Original (45 lines, ~600 tokens)
-def calculate_shipping(order, warehouse, method="standard"):
-    """Calculate shipping cost based on order weight and location."""
-    total_weight = sum(item.weight * item.quantity for item in order.items)
-    # ... 40 more lines ...
+  - optional LLM-based summarization through Ollama
+  - smart truncation fallback using signatures and docstrings
 
-# Compressed (2 lines, ~40 tokens)
-def calculate_shipping(order, warehouse, method="standard"):
-    """Calculate shipping cost based on order weight and location."""
-```
+  Example:
 
-Every chunk is scored: **50% vector similarity + 30% keyword match + 20% recency.** Only chunks above the confidence threshold are returned.
+  # Original
+  def calculate_shipping(order, warehouse, method="standard"):
+      """Calculate shipping cost based on order weight and location."""
+      total_weight = sum(item.weight * item.quantity for item in order.items)
+      # ...
 
-### Progressive Disclosure
+  # Compressed
+  def calculate_shipping(order, warehouse, method="standard"):
+      """Calculate shipping cost based on order weight and location."""
 
-```
-Session start:      Project overview               →  10k tokens
-Search:             "Find payment processing"      →  800 tokens
-Drill-down:         "Show full calculate_shipping" →  600 tokens
-                                            Total:    11.4k tokens
+  ### 4. Retrieval Ranking
 
-Without engine:     Read payments.py + shipping.py → 45k tokens
-```
+  Chunks are ranked using a combination of:
 
-</details>
+  - vector similarity
+  - keyword match
+  - recency
 
-<details>
-<summary><h2>Output Compression Levels</h2></summary>
+  Only context above the confidence threshold is returned.
 
-Output tokens cost **5x more** than input. CCE includes built-in output compression:
+  ### 5. Progressive Disclosure
 
-| Level | Style | Savings |
-|-------|-------|---------|
-| **off** | Normal Claude | 0% |
-| **lite** | No filler/hedging | ~30% |
-| **standard** | Fragments, short words | ~65% |
-| **max** | Telegraphic | ~75% |
+  CCE helps Claude start small and expand only when needed.
 
-Toggle mid-session:
-```
-"Switch to max output compression"
-"Turn off output compression"
-```
+  Session start:      Project overview               →  10k tokens
+  Search:             "Find payment processing"      →   800 tokens
+  Drill-down:         "Show full calculate_shipping" →   600 tokens
+                                                      -------
+                                                      11.4k tokens
 
-Code blocks, file paths, commands, and error messages are never compressed. Security warnings always use full clarity.
+  Without engine:     Read payments.py + shipping.py →  45k tokens
 
-</details>
+  ## Features
 
-<details>
-<summary><h2>Configuration</h2></summary>
+  - Semantic code indexing for repositories
+  - Relevant code retrieval by developer intent
+  - Optional context compression
+  - Cross-session memory support
+  - Local-first design
+  - Optional remote server mode
+  - MCP integration for Claude Code
 
-Works with zero config. Customize if you want:
+  ## CLI Commands
 
-**Global** (`~/.claude-context-engine/config.yaml`):
-```yaml
-compression:
-  level: standard        # minimal | standard | full (input)
-  output: standard       # off | lite | standard | max (output)
-  model: phi3:mini       # Ollama model (auto-detected if running)
+  | Command | Description |
+  |---------|-------------|
+  | cce init | One-time setup: index, git hooks, MCP config |
+  | cce index | Re-index changed files |
+  | cce index --full | Force a full re-index |
+  | cce status | Index config and token savings summary |
+  | cce savings | Visual savings report |
+  | cce savings --all | Savings across all indexed projects |
+  | cce savings --json | Machine-readable savings output |
+  | cce serve | Start MCP server |
 
-indexer:
-  watch: true
-  ignore: [.git, node_modules, __pycache__, .venv]
+  ## MCP Tools in Claude Code
 
-retrieval:
-  top_k: 20
-  confidence_threshold: 0.5
-```
+  Once connected, Claude gets these tools automatically:
 
-**Per-project** (`.context-engine.yaml` in project root):
-```yaml
-compression:
-  level: full
-indexer:
-  ignore: [.git, node_modules, dist, coverage]
-```
+  | Tool | Description |
+  |------|-------------|
+  | context_search | Semantic search across your indexed codebase |
+  | expand_chunk | Get full source for a compressed chunk |
+  | session_recall | Recall past decisions and code-area notes |
+  | record_decision | Record a decision for future recall |
+  | record_code_area | Record a file and description of work done |
+  | index_status | Check index status and token savings stats |
+  | reindex | Trigger re-indexing of a file or full project |
+  | set_output_compression | Adjust response verbosity: off, lite, standard, max |
 
-The engine auto-detects your machine resources:
+  ## Output Compression Levels
 
-| RAM | Profile | Behavior |
-|-----|---------|----------|
-| < 12 GB | light | Truncation only, small batches |
-| 12-32 GB | standard | Full pipeline (default) |
-| 32+ GB | full | Larger models, all features |
+  Output tokens can be expensive. CCE includes built-in output compression:
 
-</details>
+  | Level | Style | Savings |
+  |-------|-------|---------|
+  | off | Normal Claude output | 0% |
+  | lite | No filler or hedging | ~30% |
+  | standard | Shorter phrasing and fragments | ~65% |
+  | max | Telegraphic style | ~75% |
 
-<details>
-<summary><h2>Optional: Ollama for Better Compression</h2></summary>
+  Examples:
 
-Without Ollama, the engine uses smart truncation (signatures + docstrings). With Ollama running, it auto-detects and uses LLM-quality summaries. No config needed.
+  Switch to max output compression
+  Turn off output compression
 
-```bash
-brew install ollama
-ollama pull phi3:mini
-ollama serve
-```
+  Code blocks, file paths, commands, and error messages are never compressed. Security warnings always use full clarity.
 
-</details>
+  ## Configuration
 
-<details>
-<summary><h2>Comparison: CCE vs Caveman</h2></summary>
+  CCE works with zero config, but you can customize it.
 
-[Caveman](https://github.com/JuliusBrussee/caveman) (36k+ stars) compresses output tokens only.
+  ### Global Configuration
 
-| | CCE | Caveman |
-|---|---|---|
-| Compresses input tokens | Yes | No |
-| Compresses output tokens | Yes | Yes |
-| Codebase indexing | Yes (AST + vector) | No |
-| Session memory | Yes | No |
-| Setup | `pip install` + `cce init` | Plugin install, zero config |
+  File: ~/.claude-context-engine/config.yaml
 
-### Cost Comparison (Opus 4, medium project)
+  compression:
+    level: standard        # minimal | standard | full (input)
+    output: standard       # off | lite | standard | max (output)
+    model: phi3:mini       # Ollama model (auto-detected if running)
 
-| Tool | Total Cost | Savings |
-|---|---|---|
-| No tool | $2.25 | |
-| Caveman only | $1.28 | 43% |
-| **CCE (default)** | **$0.68** | **70%** |
+  indexer:
+    watch: true
+    ignore: [.git, node_modules, __pycache__, .venv]
 
-**Caveman** makes Claude talk less. Zero setup.
-**CCE** makes Claude read less AND talk less. Deeper savings over time.
+  retrieval:
+    top_k: 20
+    confidence_threshold: 0.5
 
-</details>
+  ### Per-Project Configuration
 
-<details>
-<summary><h2>Supported Languages</h2></summary>
+  File: .context-engine.yaml
 
-**AST-aware chunking** (tree-sitter): Python, JavaScript, TypeScript, JSX, TSX, PHP
+  compression:
+    level: full
 
-**Fallback chunking** (full-file): Markdown and other text files
+  indexer:
+    ignore: [.git, node_modules, dist, coverage]
 
-Want more? See open issues for Go, Rust, and Java support.
+  ### Resource Profiles
 
-</details>
+  The engine can auto-detect machine resources:
 
----
+  | RAM | Profile | Behavior |
+  |-----|---------|----------|
+  | < 12 GB | light | Truncation only, small batches |
+  | 12–32 GB | standard | Full pipeline |
+  | 32+ GB | full | Larger models, all features |
 
-## Contributing
+  ## Optional Ollama Support
 
-We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions.
+  Without Ollama, the engine uses smart truncation.
 
-> **Using CCE vs contributing to it**
->
-> If you just want to use CCE in your projects, `pip install claude-context-engine` is all you need. No `uv`, no cloning, no virtualenv setup.
->
-> `uv` and the dev dependencies only matter if you are working on CCE itself (running tests, modifying source code). Those steps are in CONTRIBUTING.md.
+  With Ollama running locally, CCE can use higher-quality summaries automatically.
 
-Check out the [good first issues](https://github.com/fazleelahhee/Claude-Context-Engine/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) to get started.
+  brew install ollama
+  ollama pull phi3:mini
+  ollama serve
 
-## Roadmap
+  No extra configuration is required.
 
-- [ ] Tree-sitter support for Go, Rust, Java, C/C++
-- [ ] Web dashboard for index inspection
-- [ ] Persistent session search across projects
-- [x] ~~PyPI package publishing~~
-- [x] ~~GitHub Actions CI pipeline~~
-- [x] ~~PHP support~~
+  ## Supported Languages
 
-## License
+  ### AST-Aware Chunking
 
-MIT. See [LICENSE](LICENSE).
+  - Python
+  - JavaScript
+  - TypeScript
+  - JSX
+  - TSX
+  - PHP
 
-## Acknowledgments
+  ### Fallback Chunking
 
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) | [MCP](https://modelcontextprotocol.io) | [LanceDB](https://lancedb.com/) | [Tree-sitter](https://tree-sitter.github.io/) | [Ollama](https://ollama.com/)
+  - Markdown
+  - other text-based files
 
----
+  Additional language support such as Go, Rust, and Java is planned.
 
-<p align="center">
-  If this saves you tokens, give it a star — it helps others find it.
-</p>
+  ## Use Cases
+
+  - understanding unfamiliar codebases
+  - locating related logic across multiple files
+  - reducing prompt size for large repositories
+  - improving Claude Code workflows
+  - maintaining context across repeated sessions
+
+  ## Roadmap
+
+  - Tree-sitter support for Go, Rust, Java, C, and C++
+  - Web dashboard for index inspection
+  - Persistent session search across projects
+  - Docker support for remote mode
+  - More retrieval-quality benchmarks on real repositories
+
+  ## Contributing
+
+  Contributions are welcome. See CONTRIBUTING.md (CONTRIBUTING.md) for setup instructions.
+
+  If you only want to use CCE in your own projects, pip install claude-context-engine is enough.
+
+  Development dependencies and local setup only matter if you want to work on CCE itself.
+
+  You can also browse the good first issues
+  (https://github.com/fazleelahhee/Claude-Context-Engine/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+  ## License
+
+  MIT. See LICENSE (LICENSE).
+
+  ## Acknowledgments
+
+  Claude Code (https://docs.anthropic.com/en/docs/claude-code)
+  MCP (https://modelcontextprotocol.io)
+  LanceDB (https://lancedb.com/)
+  Tree-sitter (https://tree-sitter.github.io/)
+  Ollama (https://ollama.com/)
+
+  ———
+  <p align="center">
+    If CCE saves you tokens, give it a star — it helps more developers find it.
+  </p>
+  ```
