@@ -1,4 +1,5 @@
 """Tests for the CCE dashboard FastAPI server."""
+import hashlib
 import json
 from pathlib import Path
 
@@ -82,7 +83,6 @@ def test_files_with_manifest(tmp_path):
     (project_dir / "src").mkdir(parents=True, exist_ok=True)
 
     content = "def foo(): pass\n"
-    import hashlib
     h = hashlib.sha256(content.encode()).hexdigest()
     (project_dir / "src" / "cli.py").write_text(content)
 
