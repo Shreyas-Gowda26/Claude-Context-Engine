@@ -127,6 +127,10 @@ def init(ctx: click.Context) -> None:
     storage_dir.mkdir(parents=True, exist_ok=True)
     click.echo(f"Storage directory: {storage_dir}")
 
+    # Persist the source path so `cce prune` can detect deleted projects.
+    meta_path = storage_dir / "meta.json"
+    meta_path.write_text(json.dumps({"project_dir": str(project_dir.resolve())}))
+
     configured = _configure_mcp(project_dir)
     if configured:
         click.echo("MCP server registered in .mcp.json — restart Claude Code to activate.")
@@ -350,6 +354,55 @@ def _run_savings_report(config, *, as_json: bool = False, all_projects: bool = F
         click.echo(f"  {_FREE} Saved: {total_saved:,} tokens ({total_pct}%)")
 
     click.echo()
+
+
+@main.command()
+@click.option("--dry-run", is_flag=True, help="Show what would be removed without deleting")
+@click.pass_context
+def prune(ctx: click.Context, dry_run: bool) -> None:
+    """Remove index data for projects whose directories no longer exist."""
+    import shutil
+    config = ctx.obj["config"]
+    storage_root = Path(config.storage_path)
+    if not storage_root.exists():
+        click.echo("No indexed projects found.")
+        return
+
+    removed = []
+    kept = []
+    for project_dir in sorted(storage_root.iterdir()):
+        if not project_dir.is_dir():
+            continue
+        meta_path = project_dir / "meta.json"
+        if not meta_path.exists():
+            kept.append((project_dir.name, "(no meta.json — skipping)"))
+            continue
+        try:
+            meta = json.loads(meta_path.read_text())
+            source_path = Path(meta.get("project_dir", ""))
+        except (json.JSONDecodeError, OSError):
+            kept.append((project_dir.name, "(unreadable meta.json — skipping)"))
+            continue
+
+        if source_path and source_path.exists():
+            kept.append((project_dir.name, str(source_path)))
+        else:
+            removed.append((project_dir.name, str(source_path), project_dir))
+
+    if not removed:
+        click.echo("Nothing to prune — all indexed projects still exist.")
+        for name, path in kept:
+            click.echo(f"  ✓ {name}  ({path})")
+        return
+
+    for name, path, storage_dir in removed:
+        label = f"  {'[dry-run] would remove' if dry_run else '✗ removed'}  {name}  (source: {path})"
+        if not dry_run:
+            shutil.rmtree(storage_dir)
+        click.echo(label)
+
+    for name, path in kept:
+        click.echo(f"  ✓ kept  {name}  ({path})")
 
 
 def savings_shortcut() -> None:
