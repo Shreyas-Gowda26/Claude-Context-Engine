@@ -1,6 +1,25 @@
-"""Git helpers for session-start context — recent commits, working state, modified files."""
+"""Git helpers for session-start context — recent commits, working state, modified files.
+
+All functions gracefully return empty results when the project is not a git
+repository, so CCE works for non-git projects too.
+"""
 import subprocess
 from pathlib import Path
+
+
+def _is_git_repo(project_dir: str) -> bool:
+    """Return True if project_dir is inside a git work tree."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return False
 
 
 def _run_git(args: list[str], cwd: str) -> str:
@@ -14,14 +33,16 @@ def _run_git(args: list[str], cwd: str) -> str:
             timeout=5,
         )
         return result.stdout.strip() if result.returncode == 0 else ""
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return ""
 
 
 def get_recent_commits(project_dir: str, count: int = 10) -> list[str]:
     """Return the last N commits as short one-line strings."""
+    if not _is_git_repo(project_dir):
+        return []
     output = _run_git(
-        ["log", f"--oneline", f"-{count}"],
+        ["log", "--oneline", f"-{count}"],
         cwd=project_dir,
     )
     return output.splitlines() if output else []
@@ -29,6 +50,9 @@ def get_recent_commits(project_dir: str, count: int = 10) -> list[str]:
 
 def get_working_state(project_dir: str) -> list[str]:
     """Return a summary of uncommitted changes and branch info."""
+    if not _is_git_repo(project_dir):
+        return []
+
     lines: list[str] = []
 
     # Current branch
@@ -37,18 +61,22 @@ def get_working_state(project_dir: str) -> list[str]:
         lines.append(f"Branch: {branch}")
 
     # Ahead/behind relative to upstream
-    tracking = _run_git(
-        ["rev-list", "--left-right", "--count", f"{branch}@{{upstream}}...HEAD"],
-        cwd=project_dir,
-    )
-    if tracking:
-        parts = tracking.split()
-        if len(parts) == 2:
-            behind, ahead = parts
-            if int(ahead) > 0:
-                lines.append(f"Ahead of remote by {ahead} commit(s)")
-            if int(behind) > 0:
-                lines.append(f"Behind remote by {behind} commit(s)")
+    if branch:
+        tracking = _run_git(
+            ["rev-list", "--left-right", "--count", f"{branch}@{{upstream}}...HEAD"],
+            cwd=project_dir,
+        )
+        if tracking:
+            parts = tracking.split()
+            if len(parts) == 2:
+                try:
+                    behind, ahead = int(parts[0]), int(parts[1])
+                    if ahead > 0:
+                        lines.append(f"Ahead of remote by {ahead} commit(s)")
+                    if behind > 0:
+                        lines.append(f"Behind remote by {behind} commit(s)")
+                except ValueError:
+                    pass
 
     # Staged changes
     staged = _run_git(["diff", "--cached", "--name-status"], cwd=project_dir)
@@ -67,14 +95,17 @@ def get_working_state(project_dir: str) -> list[str]:
     # Untracked files (just count, not full list)
     untracked = _run_git(["ls-files", "--others", "--exclude-standard"], cwd=project_dir)
     if untracked:
-        count = len(untracked.splitlines())
-        lines.append(f"Untracked files: {count}")
+        n = len(untracked.splitlines())
+        lines.append(f"Untracked files: {n}")
 
     return lines
 
 
-def get_recently_modified_files(project_dir: str, count: int = 5) -> list[str]:
+def get_recently_modified_files(project_dir: str, log_depth: int = 5) -> list[str]:
     """Return file paths recently modified in git (last N commits + working tree)."""
+    if not _is_git_repo(project_dir):
+        return []
+
     files: list[str] = []
 
     # Files changed in working tree
@@ -84,7 +115,7 @@ def get_recently_modified_files(project_dir: str, count: int = 5) -> list[str]:
 
     # Files changed in recent commits
     commit_files = _run_git(
-        ["log", f"-{count}", "--pretty=format:", "--name-only"],
+        ["log", f"-{log_depth}", "--pretty=format:", "--name-only"],
         cwd=project_dir,
     )
     if commit_files:

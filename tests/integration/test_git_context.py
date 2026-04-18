@@ -1,8 +1,8 @@
 """Tests for git context helpers used by the init prompt."""
-import os
 import subprocess
 import pytest
 from context_engine.integration.git_context import (
+    _is_git_repo,
     get_recent_commits,
     get_recently_modified_files,
     get_working_state,
@@ -26,6 +26,18 @@ def git_repo(tmp_path):
     return tmp_path
 
 
+# ── _is_git_repo ───────────────────────────────────────────────────────
+
+def test_is_git_repo_true(git_repo):
+    assert _is_git_repo(str(git_repo)) is True
+
+
+def test_is_git_repo_false(tmp_path):
+    assert _is_git_repo(str(tmp_path)) is False
+
+
+# ── get_recent_commits ─────────────────────────────────────────────────
+
 def test_get_recent_commits(git_repo):
     commits = get_recent_commits(str(git_repo))
     assert len(commits) == 2
@@ -44,9 +56,10 @@ def test_get_recent_commits_non_git_dir(tmp_path):
     assert commits == []
 
 
+# ── get_working_state ──────────────────────────────────────────────────
+
 def test_get_working_state_clean(git_repo):
     state = get_working_state(str(git_repo))
-    # Should at least have the branch name
     assert any("Branch:" in line for line in state)
 
 
@@ -62,6 +75,14 @@ def test_get_working_state_with_untracked(git_repo):
     assert any("Untracked" in line for line in state)
 
 
+def test_get_working_state_non_git_dir(tmp_path):
+    """Non-git project must return empty list, not crash."""
+    state = get_working_state(str(tmp_path))
+    assert state == []
+
+
+# ── get_recently_modified_files ────────────────────────────────────────
+
 def test_get_recently_modified_files(git_repo):
     files = get_recently_modified_files(str(git_repo))
     assert "world.py" in files
@@ -75,5 +96,6 @@ def test_get_recently_modified_files_includes_unstaged(git_repo):
 
 
 def test_get_recently_modified_files_non_git_dir(tmp_path):
+    """Non-git project must return empty list, not crash."""
     files = get_recently_modified_files(str(tmp_path))
     assert files == []

@@ -34,9 +34,10 @@ def _hook_script() -> str:
 
 
 def install_hooks(project_dir: str) -> list[str]:
+    """Install CCE git hooks. Returns [] gracefully if not a git repo."""
     hooks_dir = Path(project_dir) / ".git" / "hooks"
     if not hooks_dir.exists():
-        raise FileNotFoundError(f"Git hooks directory not found: {hooks_dir}")
+        return []
     installed = []
     for hook_name in HOOK_NAMES:
         hook_path = hooks_dir / hook_name

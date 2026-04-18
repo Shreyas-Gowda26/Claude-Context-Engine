@@ -76,10 +76,10 @@ def init(ctx: click.Context) -> None:
     config = ctx.obj["config"]
     project_dir = Path.cwd()
 
-    try:
-        installed = install_hooks(str(project_dir))
+    installed = install_hooks(str(project_dir))
+    if installed:
         click.echo(f"Git hooks installed: {len(installed)} hooks")
-    except FileNotFoundError:
+    else:
         click.echo("No .git directory found — skipping git hooks")
 
     project_name = project_dir.name

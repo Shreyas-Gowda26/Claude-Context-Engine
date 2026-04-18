@@ -41,3 +41,9 @@ def test_install_hooks_preserves_existing(git_repo):
     content = existing_hook.read_text()
     assert "existing" in content
     assert "claude-context-engine" in content
+
+
+def test_install_hooks_returns_empty_for_non_git(tmp_path):
+    """Non-git directory should return empty list, not raise."""
+    result = install_hooks(project_dir=str(tmp_path))
+    assert result == []
