@@ -6,17 +6,21 @@
 
 <p align="center">
   <strong>Make Claude understand your codebase without wasting tokens.</strong>
-</p>
+
 
 Claude Context Engine is a local-first context engine for Claude Code. It indexes your repository, breaks code into meaningful chunks, and retrieves only the most relevant context for each task.
 
 The goal is simple: give Claude the minimum correct context needed to produce a better answer.
 
-[![PyPI](https://img.shields.io/pypi/v/claude-context-engine?color=blue&label=PyPI)](https://pypi.org/project/claude-context-engine/)
-![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
-![MCP Compatible](https://img.shields.io/badge/MCP-compatible-green.svg)
-![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)
-[![GitHub stars](https://img.shields.io/github/stars/fazleelahhee/Claude-Context-Engine?style=social)](https://github.com/fazleelahhee/Claude-Context-Engine)
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/claude-context-engine/"><img src="https://img.shields.io/pypi/v/claude-context-engine?color=blue&label=PyPI" alt="PyPI"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
+  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
+  <a href="https://github.com/fazleelahhee/Claude-Context-Engine"><img src="https://img.shields.io/github/stars/fazleelahhee/Claude-Context-Engine?style=social" alt="Stars"></a>
+</p>
 
 ## Overview
 
