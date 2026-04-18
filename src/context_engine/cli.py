@@ -80,8 +80,6 @@ def init(ctx: click.Context) -> None:
     installed = install_hooks(str(project_dir))
     if installed:
         click.echo(f"Git hooks installed: {len(installed)} hooks")
-    else:
-        click.echo("No .git directory found — skipping git hooks")
 
     project_name = project_dir.name
     storage_dir = Path(config.storage_path) / project_name
@@ -93,6 +91,13 @@ def init(ctx: click.Context) -> None:
         click.echo("MCP server registered in .mcp.json — restart Claude Code to activate.")
     else:
         click.echo("MCP server already in .mcp.json.")
+
+    is_git_repo = (project_dir / ".git").exists()
+    if not is_git_repo:
+        click.echo(
+            "Note: not a git repository — git history will not be indexed.\n"
+            "To enable git indexing, run: git init && git add . && git commit -m 'init'"
+        )
 
     click.echo("Running initial index...")
     asyncio.run(_run_index(config, str(project_dir), full=True))
