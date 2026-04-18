@@ -253,3 +253,39 @@ def test_set_compression_invalid(tmp_path):
     client, _ = _make_client(tmp_path)
     r = client.post("/api/compression", json={"level": "turbo"})
     assert r.status_code == 422
+
+
+def test_find_free_port():
+    from context_engine.cli import _find_free_port
+    port = _find_free_port()
+    assert 1024 < port < 65535
+
+
+def test_dashboard_command_no_browser(tmp_path):
+    """cce dashboard --no-browser calls uvicorn.run with a valid port."""
+    import threading
+    from unittest.mock import patch
+    from click.testing import CliRunner
+    from context_engine.cli import main
+
+    config = Config(storage_path=str(tmp_path / "storage"))
+    project_dir = tmp_path / "workspace" / "proj"
+    project_dir.mkdir(parents=True)
+
+    captured = {}
+    started = threading.Event()
+
+    def fake_uvicorn_run(app, **kwargs):
+        captured["port"] = kwargs.get("port")
+        started.set()
+
+    runner = CliRunner()
+    with patch("context_engine.cli.load_config", return_value=config), \
+         patch("context_engine.cli.Path.cwd", return_value=project_dir), \
+         patch("uvicorn.run", side_effect=fake_uvicorn_run):
+        result = runner.invoke(main, ["dashboard", "--no-browser"])
+
+    assert result.exit_code == 0
+    assert "localhost:" in result.output
+    assert captured.get("port") is not None
+    assert 1024 < captured["port"] < 65535

@@ -305,7 +305,7 @@ Additional language support such as Go, Rust, and Java is planned.
 ## Roadmap
 
 - Tree-sitter support for Go, Rust, Java, C, and C++
-- Web dashboard for index inspection
+- [x] Web dashboard for index inspection (`cce dashboard`)
 - Persistent session search across projects
 - Docker support for remote mode
 - More retrieval-quality benchmarks on real repositories
