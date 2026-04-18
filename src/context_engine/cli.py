@@ -24,7 +24,7 @@ def _configure_mcp(project_dir: Path) -> bool:
     cce_bin = Path(sys.executable).parent / "cce"
     command = str(cce_bin) if cce_bin.exists() else "cce"
 
-    entry = {"command": command, "args": ["serve"]}
+    entry = {"command": command, "args": ["serve", "--project-dir", str(project_dir)]}
 
     if mcp_path.exists():
         try:
@@ -379,14 +379,18 @@ def _find_free_port() -> int:
 @click.option("--http", "as_http", is_flag=True, help="Start HTTP REST server instead of stdio MCP")
 @click.option("--host", default="127.0.0.1", show_default=True, help="HTTP bind host (requires CCE_API_TOKEN for non-loopback)")
 @click.option("--port", default=8765, show_default=True, help="HTTP port")
+@click.option("--project-dir", default=None, help="Project directory (defaults to cwd)")
 @click.pass_context
-def serve(ctx: click.Context, as_http: bool, host: str, port: int) -> None:
+def serve(ctx: click.Context, as_http: bool, host: str, port: int, project_dir: str | None) -> None:
     """Start the MCP server (used by Claude Code).
 
     With --http, starts a REST server exposing the storage backend for remote
     backend clients. Binds loopback by default; exposing on other interfaces
     requires CCE_API_TOKEN to be set.
     """
+    if project_dir:
+        import os
+        os.chdir(project_dir)
     if as_http:
         from context_engine.serve_http import run_http_server
         run_http_server(ctx.obj["config"], host=host, port=port)
