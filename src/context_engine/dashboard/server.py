@@ -1,6 +1,7 @@
 """FastAPI dashboard server for CCE index inspection."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -90,5 +91,32 @@ def create_app(config: Config, project_dir: Path) -> FastAPI:
             "tokens_saved_pct": saved_pct,
             "output_level": output_level,
         }
+
+    @app.get("/api/files")
+    async def get_files() -> list:
+        manifest = _read_manifest()
+        if not manifest:
+            return []
+
+        chunk_counts = backend.file_chunk_counts()
+
+        result = []
+        for rel_path, stored_hash in sorted(manifest.items()):
+            abs_path = project_dir / rel_path
+            if not abs_path.exists():
+                status = "missing"
+            else:
+                try:
+                    current = abs_path.read_text(encoding="utf-8", errors="strict")
+                    current_hash = hashlib.sha256(current.encode("utf-8")).hexdigest()
+                    status = "ok" if current_hash == stored_hash else "stale"
+                except (UnicodeDecodeError, OSError):
+                    status = "ok"  # binary file, trust the manifest
+            result.append({
+                "path": rel_path,
+                "chunks": chunk_counts.get(rel_path, 0),
+                "status": status,
+            })
+        return result
 
     return app

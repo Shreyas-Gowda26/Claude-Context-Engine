@@ -66,3 +66,59 @@ def test_status_with_custom_output_level(tmp_path):
     (storage_base / "state.json").write_text(json.dumps({"output_level": "max"}))
     r = client.get("/api/status")
     assert r.json()["output_level"] == "max"
+
+
+def test_files_empty(tmp_path):
+    client, _ = _make_client(tmp_path)
+    r = client.get("/api/files")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_files_with_manifest(tmp_path):
+    client, storage_base = _make_client(tmp_path)
+    # Create project files on disk matching the manifest
+    project_dir = tmp_path / "workspace" / "my-project"
+    (project_dir / "src").mkdir(parents=True, exist_ok=True)
+
+    content = "def foo(): pass\n"
+    import hashlib
+    h = hashlib.sha256(content.encode()).hexdigest()
+    (project_dir / "src" / "cli.py").write_text(content)
+
+    manifest = {"src/cli.py": h}
+    (storage_base / "manifest.json").write_text(json.dumps(manifest))
+
+    r = client.get("/api/files")
+    assert r.status_code == 200
+    files = r.json()
+    assert len(files) == 1
+    assert files[0]["path"] == "src/cli.py"
+    assert files[0]["status"] == "ok"
+    assert files[0]["chunks"] == 0  # no LanceDB table in this test
+
+
+def test_files_stale_detection(tmp_path):
+    client, storage_base = _make_client(tmp_path)
+    project_dir = tmp_path / "workspace" / "my-project"
+    (project_dir / "src").mkdir(parents=True, exist_ok=True)
+    (project_dir / "src" / "cli.py").write_text("def foo(): pass\n")
+
+    # Manifest has a different hash → stale
+    manifest = {"src/cli.py": "oldhash000"}
+    (storage_base / "manifest.json").write_text(json.dumps(manifest))
+
+    r = client.get("/api/files")
+    files = r.json()
+    assert files[0]["status"] == "stale"
+
+
+def test_files_missing_detection(tmp_path):
+    client, storage_base = _make_client(tmp_path)
+    # File in manifest but NOT on disk
+    manifest = {"src/gone.py": "somehash"}
+    (storage_base / "manifest.json").write_text(json.dumps(manifest))
+
+    r = client.get("/api/files")
+    files = r.json()
+    assert files[0]["status"] == "missing"
