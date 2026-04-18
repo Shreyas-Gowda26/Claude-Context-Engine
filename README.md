@@ -41,9 +41,13 @@ Every Claude Code session starts cold. Without CCE, you either paste too much co
 ### 1. Install
 
 ```bash
-brew tap fazleelahhee/tap && brew install claude-context-engine  # macOS
+brew tap fazleelahhee/tap && brew install claude-context-engine  # macOS (recommended)
 # or
-pip install claude-context-engine                                 # all platforms
+uv tool install claude-context-engine                             # all platforms (recommended)
+# or
+pipx install claude-context-engine                                # all platforms
+# or
+pip install claude-context-engine                                 # inside a virtualenv
 ```
 
 ### 2. Index your project
