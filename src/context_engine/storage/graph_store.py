@@ -139,3 +139,8 @@ class GraphStore:
 
     async def delete_by_file(self, file_path: str) -> None:
         await asyncio.to_thread(self._sync_delete_by_file, file_path)
+
+    def clear(self) -> None:
+        self._conn.execute("DELETE FROM edges")
+        self._conn.execute("DELETE FROM nodes")
+        self._conn.commit()

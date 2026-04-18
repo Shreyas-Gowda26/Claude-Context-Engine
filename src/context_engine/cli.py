@@ -368,6 +368,35 @@ def _run_savings_report(config, *, as_json: bool = False, all_projects: bool = F
 
 
 @main.command()
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def clear(ctx: click.Context, yes: bool) -> None:
+    """Clear all index data for the current project (vectors, FTS, graph, manifest)."""
+    from context_engine.storage.local_backend import LocalBackend
+
+    config = ctx.obj["config"]
+    project_name = Path.cwd().name
+    storage_dir = Path(config.storage_path) / project_name
+
+    if not storage_dir.exists():
+        click.echo(f"No index data found for '{project_name}'.")
+        return
+
+    if not yes:
+        click.confirm(f"Clear all index data for '{project_name}'? This cannot be undone.", abort=True)
+
+    backend = LocalBackend(base_path=str(storage_dir))
+    asyncio.run(backend.clear())
+
+    # Reset manifest so next index starts fresh
+    manifest_path = storage_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest_path.write_text(json.dumps({"__schema_version": 2, "files": {}}))
+
+    click.echo(f"Cleared index data for '{project_name}'. Run 'cce index' to re-index.")
+
+
+@main.command()
 @click.option("--dry-run", is_flag=True, help="Show what would be removed without deleting")
 @click.pass_context
 def prune(ctx: click.Context, dry_run: bool) -> None:

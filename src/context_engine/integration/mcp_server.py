@@ -103,6 +103,16 @@ class ContextEngineMCP:
         except OSError:
             pass
 
+    def _append_query_log(self) -> None:
+        import datetime
+        try:
+            log_path = self._storage_base / "query.log"
+            entry = f"{datetime.datetime.now().isoformat()} query #{self._stats['queries']} cwd={self._project_dir}\n"
+            with log_path.open("a") as f:
+                f.write(entry)
+        except OSError:
+            pass
+
     def _load_state(self) -> dict:
         if self._state_path.exists():
             try:
@@ -125,6 +135,7 @@ class ContextEngineMCP:
         self._stats.setdefault("full_file_tokens", 0)
         self._stats["full_file_tokens"] += full_file_tokens
         self._save_stats()
+        self._append_query_log()
 
     def get_tool_names(self) -> list[str]:
         return list(self.TOOL_NAMES)

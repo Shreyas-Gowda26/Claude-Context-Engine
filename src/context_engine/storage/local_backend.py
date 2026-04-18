@@ -69,3 +69,5 @@ class LocalBackend:
 
     async def clear(self) -> None:
         self._vector_store.clear()
+        self._fts_store.clear()
+        self._graph_store.clear()

@@ -60,5 +60,9 @@ class FTSStore:
             return []
         return await asyncio.to_thread(self._search_sync, _escape_fts5(query), top_k)
 
+    def clear(self) -> None:
+        self._conn.execute("DELETE FROM chunks_fts")
+        self._conn.commit()
+
     async def delete_by_file(self, file_path: str) -> None:
         await asyncio.to_thread(self._delete_sync, file_path)
