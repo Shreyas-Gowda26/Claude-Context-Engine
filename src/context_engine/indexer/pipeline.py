@@ -37,14 +37,31 @@ def _pipeline_lock(storage_key: str) -> asyncio.Lock:
         _PIPELINE_LOCKS[storage_key] = lock
     return lock
 
-_EXTENSIONS = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".md", ".php",
-    ".html", ".css", ".json", ".yaml", ".yml", ".toml",
-    ".sh", ".bash", ".zsh", ".rb", ".go", ".rs", ".java",
-    ".c", ".cpp", ".h", ".hpp", ".swift", ".kt",
-    ".sql", ".graphql", ".proto", ".txt", ".cfg", ".ini",
-    ".env.example", ".dockerfile", ".xml", ".svg",
+# Binary / non-text extensions to skip (images, compiled, archives, etc.)
+_SKIP_EXTENSIONS = {
+    # Images
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".svg",
+    # Compiled / bytecode
+    ".pyc", ".pyo", ".class", ".o", ".so", ".dylib", ".dll", ".exe", ".wasm",
+    # Archives
+    ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar", ".jar", ".war",
+    # Data / binary
+    ".db", ".sqlite", ".sqlite3", ".bin", ".dat", ".pkl", ".pickle",
+    ".parquet", ".arrow", ".lance",
+    # Media
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".flv", ".ogg", ".webm",
+    # Fonts
+    ".ttf", ".otf", ".woff", ".woff2", ".eot",
+    # Documents (non-text)
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    # Package locks (huge, not useful for context)
+    ".lock",
+    # Source maps
+    ".map",
 }
+
+# Known extension → language mapping for tree-sitter and chunk metadata.
+# Files with unlisted extensions are still indexed as "plaintext".
 _LANGUAGE_MAP = {
     ".py": "python",
     ".js": "javascript",
@@ -54,7 +71,10 @@ _LANGUAGE_MAP = {
     ".md": "markdown",
     ".php": "php",
     ".html": "html",
+    ".htm": "html",
     ".css": "css",
+    ".scss": "css",
+    ".less": "css",
     ".json": "json",
     ".yaml": "yaml",
     ".yml": "yaml",
@@ -72,11 +92,34 @@ _LANGUAGE_MAP = {
     ".hpp": "cpp",
     ".swift": "swift",
     ".kt": "kotlin",
+    ".kts": "kotlin",
     ".sql": "sql",
     ".graphql": "graphql",
+    ".gql": "graphql",
     ".proto": "protobuf",
     ".xml": "xml",
-    ".svg": "xml",
+    ".r": "r",
+    ".R": "r",
+    ".lua": "lua",
+    ".ex": "elixir",
+    ".exs": "elixir",
+    ".erl": "erlang",
+    ".hs": "haskell",
+    ".scala": "scala",
+    ".clj": "clojure",
+    ".dart": "dart",
+    ".vue": "vue",
+    ".svelte": "svelte",
+    ".pl": "perl",
+    ".pm": "perl",
+    ".cs": "csharp",
+    ".fs": "fsharp",
+    ".zig": "zig",
+    ".nim": "nim",
+    ".v": "vlang",
+    ".tf": "terraform",
+    ".hcl": "hcl",
+    ".dockerfile": "dockerfile",
 }
 
 
@@ -90,7 +133,7 @@ class IndexResult:
 
 
 def _iter_project_files(
-    root: Path, ignore_set: set[str], extensions: set[str]
+    root: Path, ignore_set: set[str], skip_extensions: set[str]
 ) -> Iterable[Path]:
     """Yield files under `root` respecting ignore list, skipping symlinks.
 
@@ -118,7 +161,7 @@ def _iter_project_files(
             seen.add(resolved)
             if entry.is_dir():
                 yield from walk(entry)
-            elif entry.is_file() and entry.suffix in extensions:
+            elif entry.is_file() and entry.suffix not in skip_extensions:
                 yield entry
 
     yield from walk(root)
@@ -183,14 +226,14 @@ async def _run_indexing_locked(
         if not target.is_absolute():
             target = project_dir / target
         if target.is_file():
-            file_iter = [target] if target.suffix in _EXTENSIONS else []
+            file_iter = [target] if target.suffix not in _SKIP_EXTENSIONS else []
         elif target.is_dir():
-            file_iter = list(_iter_project_files(target, ignore_set, _EXTENSIONS))
+            file_iter = list(_iter_project_files(target, ignore_set, _SKIP_EXTENSIONS))
         else:
             result.errors.append(f"Target path not found: {target_path}")
             return result
     else:
-        file_iter = list(_iter_project_files(project_dir, ignore_set, _EXTENSIONS))
+        file_iter = list(_iter_project_files(project_dir, ignore_set, _SKIP_EXTENSIONS))
 
     current_rel_paths: set[str] = set()
     all_chunks: list = []
