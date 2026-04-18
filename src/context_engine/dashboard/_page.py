@@ -816,7 +816,7 @@ function renderDonutPanel(containerId, segments, centerBig, centerSub, centerCol
   el.innerHTML =
     '<div class="donut-wrap">'
     +'<svg class="donut-svg" id="'+containerId+'-svg" width="132" height="132" viewBox="0 0 132 132">'
-    +'<text x="66" y="62" text-anchor="middle" font-family="\'JetBrains Mono\',monospace" font-size="19" font-weight="800" fill="'+(centerColor||'var(--text)')+'">'+centerBig+'</text>'
+    +'<text x="66" y="62" text-anchor="middle" font-family="monospace" font-size="19" font-weight="800" fill="'+(centerColor||'var(--text)')+'">'+centerBig+'</text>'
     +'<text x="66" y="78" text-anchor="middle" font-family="sans-serif" font-size="10" fill="var(--text3)">'+centerSub+'</text>'
     +'</svg>'
     +'<div class="donut-legend">'+legendHtml+'</div>'
