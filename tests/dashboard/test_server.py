@@ -122,3 +122,68 @@ def test_files_missing_detection(tmp_path):
     r = client.get("/api/files")
     files = r.json()
     assert files[0]["status"] == "missing"
+
+
+def test_sessions_empty(tmp_path):
+    client, _ = _make_client(tmp_path)
+    r = client.get("/api/sessions")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_sessions_returns_persisted(tmp_path):
+    client, storage_base = _make_client(tmp_path)
+    sessions_dir = storage_base / "sessions"
+    sessions_dir.mkdir(parents=True)
+    session = {
+        "id": "abc123", "project": "my-project", "started_at": 1700000000.0,
+        "ended_at": 1700000120.0,
+        "decisions": [{"decision": "use JWT", "reason": "stateless", "timestamp": 1700000060.0}],
+        "code_areas": [],
+        "questions": [],
+    }
+    (sessions_dir / "abc123.json").write_text(json.dumps(session))
+    r = client.get("/api/sessions")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["id"] == "abc123"
+    assert len(data[0]["decisions"]) == 1
+
+
+def test_savings_no_data(tmp_path):
+    client, _ = _make_client(tmp_path)
+    r = client.get("/api/savings")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["queries"] == 0
+    assert data["tokens_saved"] == 0
+    assert data["savings_pct"] == 0
+
+
+def test_savings_with_data(tmp_path):
+    client, storage_base = _make_client(tmp_path)
+    stats = {"queries": 38, "full_file_tokens": 48000, "served_tokens": 14200, "raw_tokens": 14200}
+    (storage_base / "stats.json").write_text(json.dumps(stats))
+    r = client.get("/api/savings")
+    data = r.json()
+    assert data["queries"] == 38
+    assert data["served_tokens"] == 14200
+    assert data["baseline_tokens"] == 48000
+    assert data["tokens_saved"] == 33800
+    assert data["savings_pct"] == 70
+
+
+def test_export_returns_combined(tmp_path):
+    client, storage_base = _make_client(tmp_path)
+    stats = {"queries": 5, "full_file_tokens": 1000, "served_tokens": 300, "raw_tokens": 300}
+    (storage_base / "stats.json").write_text(json.dumps(stats))
+    manifest = {"foo.py": "hash1"}
+    (storage_base / "manifest.json").write_text(json.dumps(manifest))
+    r = client.get("/api/export")
+    assert r.status_code == 200
+    assert r.headers["content-disposition"].startswith("attachment")
+    data = r.json()
+    assert "stats" in data
+    assert "manifest" in data
+    assert "sessions" in data

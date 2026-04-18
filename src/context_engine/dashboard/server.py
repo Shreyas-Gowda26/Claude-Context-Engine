@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from context_engine.config import Config
 from context_engine.dashboard._page import PAGE_HTML
@@ -118,5 +118,40 @@ def create_app(config: Config, project_dir: Path) -> FastAPI:
                 "status": status,
             })
         return result
+
+    @app.get("/api/sessions")
+    async def get_sessions() -> list:
+        return _read_sessions()
+
+    @app.get("/api/savings")
+    async def get_savings() -> dict:
+        stats = _read_stats()
+        full_file = stats.get("full_file_tokens", 0)
+        served = stats.get("served_tokens", 0)
+        raw = stats.get("raw_tokens", 0)
+        baseline = full_file if full_file > 0 else raw
+        saved = max(0, baseline - served)
+        pct = int(saved / baseline * 100) if baseline > 0 else 0
+        return {
+            "queries": stats.get("queries", 0),
+            "baseline_tokens": baseline,
+            "served_tokens": served,
+            "tokens_saved": saved,
+            "savings_pct": pct,
+        }
+
+    @app.get("/api/export")
+    async def export_data():
+        payload = {
+            "project": project_name,
+            "stats": _read_stats(),
+            "manifest": _read_manifest(),
+            "sessions": _read_sessions(),
+        }
+        return Response(
+            content=json.dumps(payload, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={project_name}-cce-export.json"},
+        )
 
     return app
