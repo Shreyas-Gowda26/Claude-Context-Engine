@@ -136,14 +136,20 @@ class VectorStore:
                     self._table = self._db.open_table(TABLE_NAME)
                 except Exception:
                     return []
-            query = self._table.search(query_embedding).limit(top_k)
-            if filters:
-                where_clauses = [
-                    f"{key} = {_escape_sql_literal(value)}"
-                    for key, value in filters.items()
-                ]
-                query = query.where(" AND ".join(where_clauses))
-            results = query.to_list()
+            try:
+                query = self._table.search(query_embedding).limit(top_k)
+                if filters:
+                    where_clauses = [
+                        f"{key} = {_escape_sql_literal(value)}"
+                        for key, value in filters.items()
+                    ]
+                    query = query.where(" AND ".join(where_clauses))
+                results = query.to_list()
+            except Exception:
+                # Table may have been dropped externally (e.g. cce clear). Reset
+                # the reference so the next search attempt re-opens it cleanly.
+                self._table = None
+                return []
         return [self._row_to_chunk(row) for row in results]
 
     async def delete_by_file(self, file_path: str) -> None:
@@ -199,12 +205,16 @@ class VectorStore:
                     self._table = self._db.open_table(TABLE_NAME)
                 except Exception:
                     return None
-            results = (
-                self._table.search()
-                .where(f"id = {_escape_sql_literal(chunk_id)}")
-                .limit(1)
-                .to_list()
-            )
+            try:
+                results = (
+                    self._table.search()
+                    .where(f"id = {_escape_sql_literal(chunk_id)}")
+                    .limit(1)
+                    .to_list()
+                )
+            except Exception:
+                self._table = None
+                return None
         if not results:
             return None
         return self._row_to_chunk(results[0])
@@ -218,11 +228,15 @@ class VectorStore:
                     self._table = self._db.open_table(TABLE_NAME)
                 except Exception:
                     return []
-            quoted = ", ".join(_escape_sql_literal(i) for i in chunk_ids)
-            results = (
-                self._table.search()
-                .where(f"id IN ({quoted})")
-                .limit(len(chunk_ids))
-                .to_list()
-            )
+            try:
+                quoted = ", ".join(_escape_sql_literal(i) for i in chunk_ids)
+                results = (
+                    self._table.search()
+                    .where(f"id IN ({quoted})")
+                    .limit(len(chunk_ids))
+                    .to_list()
+                )
+            except Exception:
+                self._table = None
+                return []
         return [self._row_to_chunk(r) for r in results]

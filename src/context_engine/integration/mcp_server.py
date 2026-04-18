@@ -100,14 +100,15 @@ class ContextEngineMCP:
     def _save_stats(self) -> None:
         try:
             self._stats_path.write_text(json.dumps(self._stats))
-        except OSError:
+        except Exception:
             pass
 
     def _append_query_log(self) -> None:
         import datetime
         try:
             log_path = self._storage_base / "query.log"
-            entry = f"{datetime.datetime.now().isoformat()} query #{self._stats['queries']} cwd={self._project_dir}\n"
+            q = self._stats["queries"]
+            entry = f"{datetime.datetime.now().isoformat()} query #{q} stats_written={self._stats_path} cwd={self._project_dir}\n"
             with log_path.open("a") as f:
                 f.write(entry)
         except OSError:
