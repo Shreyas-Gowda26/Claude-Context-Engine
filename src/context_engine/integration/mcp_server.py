@@ -650,8 +650,24 @@ class ContextEngineMCP:
                 working_state=working_state,
             )
 
+            # Tool routing instructions — injected at session start so the
+            # model uses context_search instead of Read for exploration.
+            tool_instructions = (
+                "\n\n---\n"
+                "## Tool Routing (context-engine)\n\n"
+                "This project has a semantic search index. "
+                "**You MUST use the `context_search` MCP tool** for ANY of these:\n"
+                "- Questions about the codebase (\"what does X do?\", \"how does Y work?\")\n"
+                "- Exploring code, finding functions, understanding structure\n"
+                "- Finding related code or patterns\n\n"
+                "Use `Read` ONLY when you need to edit a specific file.\n\n"
+                "Call `context_search` with a natural language query. "
+                "Example: `context_search({\"query\": \"twitter feed layout\"})`\n"
+                "Do NOT use Read, Glob, or Grep to answer questions about the code.\n"
+            )
+
             rules = get_output_rules(level)
-            content = bootstrap_text
+            content = bootstrap_text + tool_instructions
             if rules:
                 content += f"\n\n{rules}"
             return {
