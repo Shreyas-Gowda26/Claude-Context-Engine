@@ -131,8 +131,8 @@ def _ensure_session_hook(project_dir: Path) -> None:
             cce_cmd = found
 
     session_hooks.append({
-        "type": "command",
-        "command": f"{cce_cmd} status --oneline",
+        "matcher": "",
+        "hooks": [{"type": "command", "command": f"{cce_cmd} status --oneline"}],
     })
 
     settings_path.write_text(json.dumps(data, indent=2) + "\n")
