@@ -649,6 +649,11 @@ class ContextEngineMCP:
             except Exception:
                 chunk_count = 0
 
+            # Load project-specific commands from .cce/commands.yaml
+            from context_engine.project_commands import load_commands, format_for_prompt
+            proj_commands = load_commands(self._project_dir)
+            proj_commands_text = format_for_prompt(proj_commands)
+
             bootstrap_text = self._bootstrap.build(
                 project_name=self._project_name,
                 chunks=chunks,
@@ -656,6 +661,7 @@ class ContextEngineMCP:
                 active_decisions=active_decisions,
                 working_state=working_state,
                 chunk_count=chunk_count,
+                project_commands_text=proj_commands_text,
             )
 
             # Tool routing instructions — injected at session start so the

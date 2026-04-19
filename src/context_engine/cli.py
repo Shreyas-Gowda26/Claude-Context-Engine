@@ -107,10 +107,11 @@ def _ensure_session_hook(project_dir: Path) -> None:
     hooks = data.setdefault("hooks", {})
     session_hooks = hooks.setdefault("SessionStart", [])
 
-    # Check if CCE hook already exists
-    for hook in session_hooks:
-        if "cce" in hook.get("command", ""):
-            return
+    # Check if CCE hook already exists (check nested hooks array format)
+    for entry in session_hooks:
+        for h in entry.get("hooks", []):
+            if "cce" in h.get("command", ""):
+                return
 
     # Find the globally installed cce binary. Prefer known global paths over
     # shutil.which, which may find a local .venv copy that won't work from
@@ -307,6 +308,57 @@ def status(ctx: click.Context, output_json: bool, oneline: bool) -> None:
                 click.echo(f"  {project.name}: {len(chunks)} stored files")
         else:
             click.echo("Storage directory does not exist yet.")
+
+
+@main.group()
+def commands():
+    """Manage project-specific commands (before_push, before_commit, etc.)."""
+
+
+@commands.command("add")
+@click.argument("hook", type=click.Choice(["before_push", "before_commit", "on_start"]))
+@click.argument("command")
+def commands_add(hook: str, command: str) -> None:
+    """Add a command to a hook. Example: cce commands add before_push 'composer test'"""
+    from context_engine.project_commands import add_command
+    add_command(str(Path.cwd()), hook, command)
+    click.echo(f"Added to {hook}: {command}")
+
+
+@commands.command("add-custom")
+@click.argument("name")
+@click.argument("command")
+def commands_add_custom(name: str, command: str) -> None:
+    """Add a named custom command. Example: cce commands add-custom deploy 'kubectl apply -f k8s/'"""
+    from context_engine.project_commands import add_custom_command
+    add_custom_command(str(Path.cwd()), name, command)
+    click.echo(f"Added custom command '{name}': {command}")
+
+
+@commands.command("remove")
+@click.argument("hook")
+@click.argument("command")
+def commands_remove(hook: str, command: str) -> None:
+    """Remove a command from a hook."""
+    from context_engine.project_commands import remove_command
+    if remove_command(str(Path.cwd()), hook, command):
+        click.echo(f"Removed from {hook}: {command}")
+    else:
+        click.echo(f"Command not found in {hook}: {command}")
+
+
+@commands.command("list")
+def commands_list() -> None:
+    """Show all project commands."""
+    from context_engine.project_commands import load_commands, format_for_prompt
+    cmds = load_commands(str(Path.cwd()))
+    if not cmds:
+        click.echo("No project commands configured.")
+        click.echo("Add one with: cce commands add before_push 'composer test'")
+        return
+    # Show raw YAML for clarity
+    import yaml
+    click.echo(yaml.dump(cmds, default_flow_style=False, sort_keys=False).rstrip())
 
 
 @main.command()

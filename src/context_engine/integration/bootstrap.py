@@ -18,7 +18,8 @@ class BootstrapBuilder:
         self._max_chars = max_tokens * _CHARS_PER_TOKEN
 
     def build(self, project_name, chunks=None, recent_commits=None,
-              active_decisions=None, working_state=None, chunk_count=0):
+              active_decisions=None, working_state=None, chunk_count=0,
+              project_commands_text=None):
         sections = []
         ver = _get_version()
         status_line = f"CCE v{ver} · {chunk_count} chunks indexed" if chunk_count else f"CCE v{ver} · no chunks indexed yet"
@@ -28,6 +29,8 @@ class BootstrapBuilder:
         if working_state:
             state_text = "\n".join(f"  {line}" for line in working_state)
             sections.append(f"### Working State\n{state_text}")
+        if project_commands_text:
+            sections.append(project_commands_text)
         if active_decisions:
             decisions_text = "\n".join(f"- {d}" for d in active_decisions)
             sections.append(f"### Active Context\n{decisions_text}")
