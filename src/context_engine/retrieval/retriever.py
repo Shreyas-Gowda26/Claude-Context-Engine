@@ -31,9 +31,8 @@ class HybridRetriever:
         parsed = self._parser.parse(query)
         query_embedding = self._embedder.embed_query(query)
 
-        # NOTE: embed_query may return a tuple (if LRU cached). Convert to list.
-        if isinstance(query_embedding, tuple):
-            query_embedding = list(query_embedding)
+        # embed_query returns tuple for LRU cache hashability; vector_store
+        # now handles the conversion internally via _to_list().
 
         vector_results = await self._backend.vector_search(
             query_embedding=query_embedding,
@@ -70,8 +69,8 @@ class HybridRetriever:
                 hydrated = await self._backend.get_chunks_by_ids(fts_only_ids)
                 for chunk in hydrated:
                     chunk_map[chunk.id] = chunk
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("Failed to hydrate FTS-only chunks: %s", exc)
 
         # Compute RRF scores
         all_ids = set(vector_ranks.keys()) | set(fts_ids.keys())

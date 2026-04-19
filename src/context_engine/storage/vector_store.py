@@ -32,6 +32,13 @@ def _escape_sql_literal(value) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
+def _to_list(embedding) -> list[float]:
+    """Ensure embedding is a plain list — LanceDB rejects tuples/numpy arrays."""
+    if isinstance(embedding, list):
+        return embedding
+    return list(embedding)
+
+
 class VectorStore:
     def __init__(self, db_path: str) -> None:
         self._db_path = db_path
@@ -39,7 +46,11 @@ class VectorStore:
         self._lock = RLock()
         try:
             self._table = self._db.open_table(TABLE_NAME)
-        except Exception:
+        except (FileNotFoundError, ValueError):
+            # Table doesn't exist yet — will be created on first ingest.
+            self._table = None
+        except Exception as exc:
+            log.warning("Failed to open vector table: %s", exc)
             self._table = None
 
     def _ensure_table(self, vector_dim: int) -> None:
@@ -48,7 +59,7 @@ class VectorStore:
                 return
             try:
                 self._table = self._db.open_table(TABLE_NAME)
-            except Exception:
+            except (FileNotFoundError, ValueError):
                 schema = pa.schema([
                     pa.field("id", pa.string()),
                     pa.field("content", pa.string()),
@@ -70,7 +81,7 @@ class VectorStore:
             "start_line": chunk.start_line,
             "end_line": chunk.end_line,
             "language": chunk.language,
-            "vector": chunk.embedding,
+            "vector": _to_list(chunk.embedding),
         }
 
     def _row_to_chunk(self, row: dict) -> Chunk:
@@ -84,9 +95,6 @@ class VectorStore:
             language=row["language"],
             embedding=row.get("vector"),
         )
-        # LanceDB returns the similarity distance as `_distance` on search rows.
-        # Surface it in metadata so the retriever can use the real value instead
-        # of reconstructing one from the result rank.
         if "_distance" in row and row["_distance"] is not None:
             chunk.metadata["_distance"] = float(row["_distance"])
         return chunk
@@ -117,27 +125,35 @@ class VectorStore:
     async def ingest(self, chunks: list[Chunk]) -> None:
         if not chunks:
             return
-        vector_dim = len(chunks[0].embedding)
+        valid = [c for c in chunks if c.embedding]
+        if not valid:
+            log.warning("ingest called but no chunks have embeddings")
+            return
+        vector_dim = len(valid[0].embedding)
         self._ensure_table(vector_dim)
-        rows = [self._chunk_to_row(c) for c in chunks if c.embedding]
+        rows = [self._chunk_to_row(c) for c in valid]
         with self._lock:
             self._table.add(rows)
         await self._maybe_create_index()
 
     async def search(
         self,
-        query_embedding: list[float],
+        query_embedding,
         top_k: int = 10,
         filters: dict | None = None,
     ) -> list[Chunk]:
+        embedding_list = _to_list(query_embedding)
         with self._lock:
             if self._table is None:
                 try:
                     self._table = self._db.open_table(TABLE_NAME)
-                except Exception:
+                except (FileNotFoundError, ValueError):
+                    return []
+                except Exception as exc:
+                    log.error("Cannot open vector table for search: %s", exc)
                     return []
             try:
-                query = self._table.search(list(query_embedding)).limit(top_k)
+                query = self._table.search(embedding_list).limit(top_k)
                 if filters:
                     where_clauses = [
                         f"{key} = {_escape_sql_literal(value)}"
@@ -145,9 +161,8 @@ class VectorStore:
                     ]
                     query = query.where(" AND ".join(where_clauses))
                 results = query.to_list()
-            except Exception:
-                # Table may have been dropped externally (e.g. cce clear). Reset
-                # the reference so the next search attempt re-opens it cleanly.
+            except Exception as exc:
+                log.error("Vector search failed: %s", exc)
                 self._table = None
                 return []
         return [self._row_to_chunk(row) for row in results]
@@ -212,7 +227,8 @@ class VectorStore:
                     .limit(1)
                     .to_list()
                 )
-            except Exception:
+            except Exception as exc:
+                log.error("get_by_id failed for %s: %s", chunk_id, exc)
                 self._table = None
                 return None
         if not results:
@@ -236,7 +252,8 @@ class VectorStore:
                     .limit(len(chunk_ids))
                     .to_list()
                 )
-            except Exception:
+            except Exception as exc:
+                log.error("get_chunks_by_ids failed: %s", exc)
                 self._table = None
                 return []
         return [self._row_to_chunk(r) for r in results]

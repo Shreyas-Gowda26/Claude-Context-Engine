@@ -630,9 +630,10 @@ class ContextEngineMCP:
                             if c.id not in seen_ids:
                                 chunks.append(c)
                                 seen_ids.add(c.id)
-                    except Exception:
-                        pass
-            except Exception:
+                    except Exception as exc:
+                        log.debug("Recent-file chunk retrieval failed: %s", exc)
+            except Exception as exc:
+                log.warning("Init prompt chunk retrieval failed: %s", exc)
                 chunks = []
 
             # Git history and working state
