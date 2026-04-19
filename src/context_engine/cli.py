@@ -64,15 +64,23 @@ _CCE_CLAUDE_MD_BLOCK = """\
 
 This project uses Claude Context Engine for intelligent code retrieval.
 
-**Always prefer `context_search` over reading files directly** when exploring
-the codebase or answering questions about how code works. This routes queries
-through the semantic search engine, which:
+**IMPORTANT: You MUST use `context_search` instead of reading files directly**
+when exploring the codebase, answering questions about code, or understanding
+how things work. This is a hard requirement, not a suggestion. The `context_search`
+MCP tool routes queries through the semantic search engine, which:
 - Returns only the most relevant code chunks (not entire files)
 - Tracks token savings automatically
 - Provides confidence scores for each result
 
-Use the `Read` tool only when you need the exact, full content of a specific
-file (e.g. for editing). For exploration and understanding, use `context_search`.
+**When to use `context_search`:**
+- Answering questions about the codebase ("how does X work?", "where is Y?")
+- Exploring code structure or architecture
+- Finding related code, functions, or patterns
+- Any time you would otherwise read a file to understand it
+
+**When to use `Read` instead:**
+- You need to edit a specific file (read before editing)
+- You need the exact, complete content of a known file path
 
 Other useful MCP tools:
 - `expand_chunk` — get full source for a compressed result
