@@ -643,12 +643,19 @@ class ContextEngineMCP:
             # Active decisions from past sessions
             active_decisions = self._search_sessions("decision")[:10]
 
+            # Get total indexed chunk count for the status line.
+            try:
+                chunk_count = self._backend._vector_store.count()
+            except Exception:
+                chunk_count = 0
+
             bootstrap_text = self._bootstrap.build(
                 project_name=self._project_name,
                 chunks=chunks,
                 recent_commits=recent_commits,
                 active_decisions=active_decisions,
                 working_state=working_state,
+                chunk_count=chunk_count,
             )
 
             # Tool routing instructions — injected at session start so the

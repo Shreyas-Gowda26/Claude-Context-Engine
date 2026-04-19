@@ -1,7 +1,16 @@
 """Bootstrap context builder — generates compressed project context for session start."""
+from importlib.metadata import version as pkg_version
+
 from context_engine.models import Chunk, ConfidenceLevel
 
 _CHARS_PER_TOKEN = 4
+
+
+def _get_version() -> str:
+    try:
+        return pkg_version("claude-context-engine")
+    except Exception:
+        return "unknown"
 
 
 class BootstrapBuilder:
@@ -9,9 +18,11 @@ class BootstrapBuilder:
         self._max_chars = max_tokens * _CHARS_PER_TOKEN
 
     def build(self, project_name, chunks=None, recent_commits=None,
-              active_decisions=None, working_state=None):
+              active_decisions=None, working_state=None, chunk_count=0):
         sections = []
-        sections.append(f"## Project: {project_name}")
+        ver = _get_version()
+        status_line = f"CCE v{ver} · {chunk_count} chunks indexed" if chunk_count else f"CCE v{ver} · no chunks indexed yet"
+        sections.append(f"## Project: {project_name}\n`{status_line}`")
         sections.append(self._build_architecture(chunks or []))
         sections.append(self._build_activity(recent_commits or []))
         if working_state:
