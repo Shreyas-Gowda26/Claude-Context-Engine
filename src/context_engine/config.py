@@ -11,13 +11,15 @@ PROJECT_CONFIG_NAME = ".context-engine.yaml"
 DEFAULT_IGNORE = [
     # Version control
     ".git", ".svn", ".hg",
-    # Dependencies
+    # Dependencies (JS, PHP, Python, Ruby, Go, Rust, Java, .NET)
     "node_modules", "vendor", "bower_components",
     ".venv", "venv", "env", ".env",
     ".tox", ".nox", ".mypy_cache", ".pytest_cache",
     ".ruff_cache", ".cache",
+    "Pods",  # iOS CocoaPods
     # Build output
     "dist", "build", "_build", "out", "target",
+    "bin", "obj",  # .NET
     ".next", ".nuxt", ".output", ".vercel",
     ".turbo", ".parcel-cache",
     # IDE / editor
@@ -133,7 +135,16 @@ def _apply_dict_to_config(config: Config, data: dict) -> None:
                     f"{getattr(expected, '__name__', expected)}, "
                     f"got {type(value).__name__} ({value!r})"
                 )
-            setattr(config, attr, value)
+            # For ignore lists, merge with defaults instead of replacing.
+            # This way user config adds to the defaults, not overrides them.
+            if attr == "indexer_ignore" and isinstance(value, list):
+                merged = list(DEFAULT_IGNORE)
+                for item in value:
+                    if item not in merged:
+                        merged.append(item)
+                setattr(config, attr, merged)
+            else:
+                setattr(config, attr, value)
 
 
 def load_config(
