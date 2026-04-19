@@ -500,7 +500,12 @@ def serve(ctx: click.Context, as_http: bool, host: str, port: int, project_dir: 
         from context_engine.serve_http import run_http_server
         run_http_server(ctx.obj["config"], host=host, port=port)
         return
-    click.echo("Starting context engine MCP server...", err=True)
+    from importlib.metadata import version as pkg_version
+    try:
+        ver = pkg_version("claude-context-engine")
+    except Exception:
+        ver = "unknown"
+    click.echo(f"CCE v{ver} · Starting context engine MCP server...", err=True)
     asyncio.run(_run_serve(ctx.obj["config"]))
 
 
@@ -564,4 +569,7 @@ async def _run_serve(config) -> None:
         retriever=retriever, backend=backend, compressor=compressor,
         embedder=embedder, config=config,
     )
+    chunk_count = backend._vector_store.count()
+    import sys
+    print(f"CCE ready · {project_name} · {chunk_count} chunks indexed", file=sys.stderr)
     await mcp.run_stdio()
