@@ -137,7 +137,7 @@ class VectorStore:
                 except Exception:
                     return []
             try:
-                query = self._table.search(query_embedding).limit(top_k)
+                query = self._table.search(list(query_embedding)).limit(top_k)
                 if filters:
                     where_clauses = [
                         f"{key} = {_escape_sql_literal(value)}"
