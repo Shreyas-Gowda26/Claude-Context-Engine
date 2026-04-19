@@ -8,6 +8,8 @@ from context_engine.models import Chunk
 
 log = logging.getLogger(__name__)
 
+_MAX_CONTENT_CHARS = 5_000
+
 
 def _escape_fts5(query: str) -> str:
     """Wrap user input as an FTS5 phrase to avoid operator injection."""
@@ -29,10 +31,11 @@ class FTSStore:
     def _ingest_sync(self, chunks: list[Chunk]) -> None:
         cursor = self._conn.cursor()
         for chunk in chunks:
+            content = chunk.content[:_MAX_CONTENT_CHARS] if len(chunk.content) > _MAX_CONTENT_CHARS else chunk.content
             cursor.execute(
                 "INSERT OR REPLACE INTO chunks_fts(id, content, file_path, language, chunk_type) "
                 "VALUES (?, ?, ?, ?, ?)",
-                (chunk.id, chunk.content, chunk.file_path, chunk.language, chunk.chunk_type.value),
+                (chunk.id, content, chunk.file_path, chunk.language, chunk.chunk_type.value),
             )
         self._conn.commit()
 

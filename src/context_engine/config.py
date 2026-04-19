@@ -13,6 +13,7 @@ DEFAULT_IGNORE = [
     ".git", ".svn", ".hg",
     # Dependencies (JS, PHP, Python, Ruby, Go, Rust, Java, .NET)
     "node_modules", "vendor", "bower_components",
+    ".pnpm-store", ".pnpm", ".yarn",
     ".venv", "venv", "env", ".env",
     ".tox", ".nox", ".mypy_cache", ".pytest_cache",
     ".ruff_cache", ".cache",

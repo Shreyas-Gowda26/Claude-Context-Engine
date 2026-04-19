@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 TABLE_NAME = "chunks"
 _INDEX_THRESHOLD = 10_000
+_MAX_CONTENT_CHARS = 5_000  # Cap stored content to control index size
 
 
 def _escape_sql_literal(value) -> str:
@@ -73,9 +74,12 @@ class VectorStore:
                 self._table = self._db.create_table(TABLE_NAME, schema=schema)
 
     def _chunk_to_row(self, chunk: Chunk) -> dict:
+        content = chunk.content
+        if len(content) > _MAX_CONTENT_CHARS:
+            content = content[:_MAX_CONTENT_CHARS] + "\n...[truncated]"
         return {
             "id": chunk.id,
-            "content": chunk.content,
+            "content": content,
             "chunk_type": chunk.chunk_type.value,
             "file_path": chunk.file_path,
             "start_line": chunk.start_line,
@@ -100,7 +104,11 @@ class VectorStore:
         return chunk
 
     async def _maybe_create_index(self) -> None:
-        """Create an IVF_PQ index once the table exceeds the threshold."""
+        """Create an IVF_SQ (scalar quantization) index for smaller storage.
+
+        Uses int8 quantization — vectors stored as 384 bytes instead of 1536,
+        with ~1-2% quality loss. Falls back to IVF_PQ if SQ is unavailable.
+        """
         with self._lock:
             if self._table is None:
                 return
@@ -111,16 +119,30 @@ class VectorStore:
             if count < _INDEX_THRESHOLD:
                 return
         try:
-            num_partitions = max(256, int(math.sqrt(count)))
+            num_partitions = max(16, min(int(math.sqrt(count)), 256))
             await asyncio.to_thread(
                 self._table.create_index,
                 metric="cosine",
                 num_partitions=num_partitions,
-                num_sub_vectors=16,
+                index_type="IVF_SQ",
+                num_bits=8,
+                replace=True,
             )
-            log.info("Created ANN index on %d chunks", count)
-        except Exception as exc:
-            log.debug("ANN index creation skipped: %s", exc)
+            log.info("Created IVF_SQ index on %d chunks", count)
+        except Exception:
+            # Fall back to IVF_PQ if SQ not supported
+            try:
+                await asyncio.to_thread(
+                    self._table.create_index,
+                    metric="cosine",
+                    num_partitions=num_partitions,
+                    num_sub_vectors=16,
+                    index_type="IVF_PQ",
+                    replace=True,
+                )
+                log.info("Created IVF_PQ fallback index on %d chunks", count)
+            except Exception as exc:
+                log.debug("Index creation skipped: %s", exc)
 
     async def ingest(self, chunks: list[Chunk]) -> None:
         if not chunks:
@@ -135,6 +157,17 @@ class VectorStore:
         with self._lock:
             self._table.add(rows)
         await self._maybe_create_index()
+        await self._compact()
+
+    async def _compact(self) -> None:
+        """Compact LanceDB storage — merge fragments and clean old versions."""
+        try:
+            with self._lock:
+                if self._table is None:
+                    return
+                self._table.optimize()
+        except Exception as exc:
+            log.debug("Compaction skipped: %s", exc)
 
     async def search(
         self,
