@@ -375,6 +375,11 @@ http = [
     { name = "aiohttp" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", marker = "extra == 'http'", specifier = ">=3.9" },
@@ -397,6 +402,9 @@ requires-dist = [
     { name = "watchdog", specifier = ">=4.0" },
 ]
 provides-extras = ["dev", "http"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.3" }]
 
 [[package]]
 name = "click"

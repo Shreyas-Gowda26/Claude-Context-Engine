@@ -38,6 +38,50 @@ def _clamp_top_k(value, default: int = 10) -> int:
     return max(1, min(n, _MAX_TOP_K))
 
 
+def _split_inline_overflow(
+    chunks: list, max_tokens: int
+) -> tuple[list, list]:
+    """Split chunks into inline (fits budget) and overflow (references only)."""
+    inline: list = []
+    overflow: list = []
+    budget = max_tokens
+    for chunk in chunks:
+        served_text = chunk.compressed_content or chunk.content
+        chunk_tokens = _count_tokens(served_text)
+        if chunk_tokens <= budget:
+            inline.append(chunk)
+            budget -= chunk_tokens
+        else:
+            overflow.append(chunk)
+    return inline, overflow
+
+
+def _format_results_with_overflow(inline_chunks: list, overflow_chunks: list) -> str:
+    """Format inline results and append compact overflow references."""
+    parts = []
+    for chunk in inline_chunks:
+        served_text = chunk.compressed_content or chunk.content
+        parts.append(
+            f"[{chunk.file_path}:{chunk.start_line}] "
+            f"(confidence: {chunk.confidence_score:.2f})\n{served_text}"
+        )
+
+    if overflow_chunks:
+        lines = [
+            f"\n---\n{len(overflow_chunks)} more result(s) available "
+            f"(not shown to save tokens):"
+        ]
+        for chunk in overflow_chunks:
+            lines.append(
+                f'  expand_chunk(chunk_id="{chunk.id}")  '
+                f"→ {chunk.file_path}:{chunk.start_line} "
+                f"(confidence: {chunk.confidence_score:.2f})"
+            )
+        parts.append("\n".join(lines))
+
+    return "\n\n---\n\n".join(parts) if parts else "No results found."
+
+
 class ContextEngineMCP:
     TOOL_NAMES = [
         "context_search",
@@ -338,29 +382,34 @@ class ContextEngineMCP:
         except (TypeError, ValueError):
             max_tokens = 8000
 
-        chunks = await self._retriever.retrieve(
+        # Fetch 2x candidates so overflow can offer references
+        all_chunks = await self._retriever.retrieve(
             query,
-            top_k=top_k,
+            top_k=top_k * 2,
             confidence_threshold=self._config.retrieval_confidence_threshold,
-            max_tokens=max_tokens,
+            max_tokens=None,
         )
-        chunks = await self._compressor.compress(chunks, self._config.compression_level)
-        results = []
+        all_chunks = await self._compressor.compress(all_chunks, self._config.compression_level)
+
+        inline_chunks, overflow_chunks = _split_inline_overflow(all_chunks, max_tokens)
+
+        # Accounting
         raw_tokens = 0
         served_tokens = 0
         seen_files: set[str] = set()
-        for chunk in chunks:
+        for chunk in inline_chunks:
             served_text = chunk.compressed_content or chunk.content
             raw_tokens += _count_tokens(chunk.content)
             served_tokens += _count_tokens(served_text)
             seen_files.add(chunk.file_path)
-            results.append(
-                f"[{chunk.file_path}:{chunk.start_line}] "
-                f"(confidence: {chunk.confidence_score:.2f})\n{served_text}"
-            )
-        # Estimate what reading the full files would have cost
+        for chunk in overflow_chunks:
+            raw_tokens += _count_tokens(chunk.content)
+            served_tokens += 30  # compact reference ~30 tokens
+            seen_files.add(chunk.file_path)
+
         full_file_tokens = self._estimate_full_file_tokens(seen_files)
-        body = "\n\n---\n\n".join(results) if results else "No results found."
+
+        body = _format_results_with_overflow(inline_chunks, overflow_chunks)
         if get_output_rules(self._output_level):
             body += (
                 f"\n\n---\n[Respond using {self._output_level} output compression]"
