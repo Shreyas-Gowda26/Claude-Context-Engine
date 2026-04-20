@@ -477,6 +477,11 @@ Browse [good first issues](https://github.com/fazleelahhee/Claude-Context-Engine
 
 MIT. See [LICENSE](LICENSE).
 
+## Authors
+
+- [Fazle Elahee](https://github.com/fazleelahhee)
+- [Raj](https://github.com/rajkumarsakthivel)
+
 ## Acknowledgments
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)

@@ -4,7 +4,10 @@ version = "0.2.1"
 description = "Local context engine for Claude Code — indexes projects, compresses context, reduces token cost"
 readme = "README.md"
 license = {text = "MIT"}
-authors = [{name = "Fazle Elahee"}]
+authors = [
+    {name = "Fazle Elahee", email = "felahee@gmail.com"},
+    {name = "Raj", email = "rajkumar.sakti@gmail.com"},
+]
 keywords = ["claude", "context", "mcp", "llm", "code-indexing", "vector-search"]
 classifiers = [
     "Development Status :: 3 - Alpha",
