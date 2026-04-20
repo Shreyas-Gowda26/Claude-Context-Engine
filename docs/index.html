@@ -777,11 +777,11 @@
       <div style="display:flex;flex-direction:column;gap:10px">
         <div class="install-row">
           <span class="install-dollar">$</span>
-          <span class="install-text">pip install claude-context-engine</span>
-          <button class="copy-btn" id="copy-hero" onclick="copyText(this,'pip install claude-context-engine')">Copy</button>
+          <span class="install-text">uv tool install claude-context-engine</span>
+          <button class="copy-btn" id="copy-hero" onclick="copyText(this,'uv tool install claude-context-engine')">Copy</button>
         </div>
         <div class="install-alt">
-          brew: <a href="#">brew tap fazleelahhee/tap &amp;&amp; brew install claude-context-engine</a>
+          or: <a href="https://pypi.org/project/claude-context-engine/" target="_blank">pipx install claude-context-engine</a>
         </div>
       </div>
     </div>
@@ -817,14 +817,14 @@
         <div class="how-num">01</div>
         <div class="how-icon" style="background:var(--cyan-dim)">🗂</div>
         <div class="how-title">Index your codebase</div>
-        <p class="how-body">Tree-sitter parses your code into semantic chunks — functions, classes, modules. Stored locally with vector embeddings. Git hooks keep it current on every commit.</p>
+        <p class="how-body">Tree-sitter parses your code into semantic chunks — functions, classes, modules. Stored locally with vector embeddings. A live progress bar shows indexing status. Git hooks keep it current automatically on every commit.</p>
         <span class="how-cmd">cce init</span>
       </div>
       <div class="how-card">
         <div class="how-num">02</div>
         <div class="how-icon" style="background:var(--purple-dim)">🔍</div>
         <div class="how-title">Claude searches, not reads</div>
-        <p class="how-body">Instead of reading whole files, Claude calls <code>context_search</code> via MCP. Gets the 800 tokens it needs, not an 8,000-token file dump.</p>
+        <p class="how-body">Instead of reading whole files, Claude calls <code>context_search</code> via MCP. Hybrid vector + keyword search, then one hop on the code graph for related files. Gets the 800 tokens it needs, not an 8,000-token dump.</p>
         <span class="how-cmd">context_search "payment"</span>
       </div>
       <div class="how-card">
@@ -897,32 +897,32 @@
       <div class="feat-card">
         <div class="feat-icon" style="background:var(--cyan-dim)">🌳</div>
         <div class="feat-title">AST-Aware Chunking</div>
-        <p class="feat-body">Tree-sitter parses Python, JavaScript, TypeScript, JSX, TSX, and PHP into semantic chunks. No raw file reads, no context waste.</p>
+        <p class="feat-body">Tree-sitter parses Python, JavaScript, TypeScript, JSX, TSX, and PHP into semantic chunks — functions, classes, imports. No raw file dumps, no context waste.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:var(--purple-dim)">⚡</div>
-        <div class="feat-title">Hybrid Search</div>
-        <p class="feat-body">Vector similarity (50%) + keyword match (30%) + recency (20%). Gets the right code fast, not just the nearest embedding.</p>
+        <div class="feat-title">Hybrid Search + Graph Expansion</div>
+        <p class="feat-body">Vector similarity + BM25 keyword search merged via Reciprocal Rank Fusion. Then CCE walks one hop on the code graph — if <code>auth.py</code> is a hit, <code>utils.py</code> it imports comes too.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:var(--green-dim)">🧠</div>
-        <div class="feat-title">LLM Compression</div>
-        <p class="feat-body">With Ollama running locally, chunks are summarized by phi3:mini. Without it, smart truncation extracts signatures and docstrings.</p>
+        <div class="feat-title">Smart Compression</div>
+        <p class="feat-body">With Ollama running locally, chunks are summarized by phi3:mini. Without it, smart truncation extracts signatures and docstrings. Four output levels: <code>off</code>, <code>lite</code>, <code>standard</code>, <code>max</code>.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:var(--cyan-dim)">🔗</div>
         <div class="feat-title">Session Memory</div>
-        <p class="feat-body">Recall decisions and code areas across sessions via <code>session_recall</code>, <code>record_decision</code>, and <code>record_code_area</code>.</p>
+        <p class="feat-body">Recall decisions and code areas across sessions via <code>session_recall</code>, <code>record_decision</code>, and <code>record_code_area</code>. No re-explaining your architecture every session.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:var(--purple-dim)">🔄</div>
-        <div class="feat-title">Auto-Updates</div>
-        <p class="feat-body">Git hooks re-index on every commit. Your index is always current. No manual rebuilds, no stale search results.</p>
+        <div class="feat-title">Auto-Updates with Progress</div>
+        <p class="feat-body">Git hooks re-index on every commit. A live progress bar shows scanning status on large repos — no silent hangs, no guessing if it crashed.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon" style="background:var(--green-dim)">🗜</div>
-        <div class="feat-title">Output Compression</div>
-        <p class="feat-body">Four output compression levels: off, lite, standard, max. Persisted across restarts. Toggle any time mid-session.</p>
+        <div class="feat-icon" style="background:var(--green-dim)">📋</div>
+        <div class="feat-title">Project Commands</div>
+        <p class="feat-body">Persist rules, preferences, and shell hooks per project with <code>cce commands</code>. "Never use down() in migrations" — stored once, surfaced to Claude every session automatically.</p>
       </div>
     </div>
   </div>
@@ -1002,8 +1002,8 @@
 
     <div class="cta-install">
       <span class="install-dollar" style="border-right:1px solid var(--border)">$</span>
-      <span class="install-text" style="padding:0 16px">pip install claude-context-engine</span>
-      <button class="copy-btn" style="margin:6px" onclick="copyText(this,'pip install claude-context-engine')">Copy</button>
+      <span class="install-text" style="padding:0 16px">uv tool install claude-context-engine</span>
+      <button class="copy-btn" style="margin:6px" onclick="copyText(this,'uv tool install claude-context-engine')">Copy</button>
     </div>
 
     <div class="cta-steps">
@@ -1057,19 +1057,25 @@ function copyText(btn, text) {
 // ── Hero terminal animation ────────────────────────────
 const HERO_LINES = [
   { html: '<span class="t-dim">$</span> <span class="t-cmd">cce init</span>', delay: 500 },
-  { html: '<span class="t-ok">✓</span> <span class="t-info">Git hooks installed: 2 hooks</span>', delay: 900 },
-  { html: '<span class="t-ok">✓</span> <span class="t-info">Storage directory created</span>', delay: 600 },
-  { html: '<span class="t-ok">✓</span> <span class="t-info">MCP server registered in .mcp.json</span>', delay: 550 },
-  { html: '  <span class="t-info">Indexed 1,247 chunks from 183 files</span>', delay: 1300 },
-  { html: '', delay: 350 },
-  { html: '<span class="t-dim">$</span> <span class="t-cmd">cce savings</span>', delay: 650 },
-  { html: '', delay: 550 },
-  { html: '  <span class="s-used">⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁</span><span class="s-free"> ⛶ ⛶ ⛶</span>   my-project · 38 queries', delay: 70 },
-  { html: '  <span class="s-used">⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁</span><span class="s-free"> ⛶ ⛶ ⛶</span>   14.2k / 48.0k tokens (30%)', delay: 40 },
-  { html: '  <span class="s-used">⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁</span><span class="s-free"> ⛶ ⛶ ⛶</span>', delay: 40 },
-  { html: '  <span class="s-used">⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁</span><span class="s-free"> ⛶ ⛶ ⛶</span>   Token savings', delay: 40 },
-  { html: '  <span class="s-used">⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁</span><span class="s-free"> ⛶ ⛶ ⛶</span>   <span class="s-used">⛁</span> With CCE:     14,200 tokens (30%)', delay: 40 },
-  { html: '  <span class="s-used">⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁</span><span class="s-free"> ⛶ ⛶ ⛶</span>   <span class="s-free">⛶</span> Tokens saved: <span class="t-save">33,800 tokens (70%)</span>', delay: 40 },
+  { html: '', delay: 200 },
+  { html: '  <span class="t-cyan" style="font-weight:700">Claude Context Engine</span>  <span class="t-dim">·  my-project</span>', delay: 350 },
+  { html: '  <span class="t-dim">────────────────────────────────</span>', delay: 80 },
+  { html: '', delay: 150 },
+  { html: '  <span class="t-dim">Checking embedding model...</span> <span class="t-ok">ready.</span>', delay: 750 },
+  { html: '  Ollama <span style="color:#f59e0b">not running</span> <span class="t-dim">— truncation compression.</span>', delay: 300 },
+  { html: '', delay: 200 },
+  { html: '  <span class="t-ok">✓</span> <span class="t-info">Git hooks installed  </span><span class="t-dim">(3 hooks, auto-updates)</span>', delay: 320 },
+  { html: '  <span class="t-ok">✓</span> <span class="t-info">MCP server registered in </span><span class="t-cyan">.mcp.json</span>', delay: 280 },
+  { html: '  <span class="t-ok">✓</span> <span class="t-info">CLAUDE.md created</span>', delay: 250 },
+  { html: '  <span class="t-ok">✓</span> <span class="t-info">.gitignore updated</span>', delay: 250 },
+  { html: '', delay: 180 },
+  { html: '  <span class="t-cyan" style="font-weight:600">Indexing project</span>...', delay: 320 },
+  { html: '    <span class="t-cyan">████████████████</span><span class="t-dim">██████████████</span>  <span style="font-weight:600;color:#dde8ff">52/89</span> <span class="t-dim">files  58%</span>', delay: 600 },
+  { html: '    <span class="t-cyan">██████████████████████████████</span>  <span style="font-weight:600;color:#dde8ff">89/89</span> <span class="t-dim">files  100%</span>', delay: 550 },
+  { html: '', delay: 100 },
+  { html: '  <span class="t-ok">✓</span> <span style="font-weight:700;color:#dde8ff">Indexed 1,247 chunks</span> <span class="t-info">from 89 files</span>', delay: 350 },
+  { html: '', delay: 150 },
+  { html: '  <span class="t-ok" style="font-weight:700">Done!</span>  <span class="t-dim">Restart Claude Code to activate CCE.</span>', delay: 250 },
 ];
 
 function runTerminal() {
@@ -1140,18 +1146,20 @@ function buildSavingsDemo() {
 function buildTicker() {
   const items = [
     { k: 'TOKEN SAVINGS', v: '70%', vc: 'g' },
-    { k: 'DEPENDENCIES', v: '0', vc: '' },
     { k: 'PRICE', v: '$0', vc: '' },
-    { k: 'LANGUAGES', v: '6', vc: '' },
+    { k: 'AST LANGUAGES', v: '6', vc: '' },
+    { k: 'CLOUD DEPS', v: '0', vc: '' },
     { k: 'STORAGE', v: 'LOCAL', vc: '' },
-    { k: 'ACCURACY', v: '100%', vc: 'g' },
-    { k: 'CLOUD CALLS', v: 'NONE', vc: '' },
     { k: 'MCP', v: 'COMPATIBLE', vc: 'v' },
     { k: 'SESSION MEMORY', v: 'YES', vc: 'g' },
+    { k: 'GRAPH EXPANSION', v: 'YES', vc: 'g' },
+    { k: 'PROGRESS BAR', v: 'YES', vc: 'g' },
     { k: 'SETUP', v: '60 SECONDS', vc: '' },
+    { k: 'PROJECT COMMANDS', v: 'YES', vc: 'g' },
     { k: 'LICENSE', v: 'MIT', vc: '' },
     { k: 'INPUT SAVINGS', v: '70%', vc: 'g' },
     { k: 'OUTPUT SAVINGS', v: '65%', vc: 'g' },
+    { k: 'COLORFUL CLI', v: 'YES', vc: 'v' },
   ];
   const track = document.getElementById('ticker');
   [0, 1].forEach(() => {
