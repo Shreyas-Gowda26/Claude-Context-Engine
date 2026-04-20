@@ -1,6 +1,7 @@
 """Service management for CCE — Ollama and Dashboard start/stop/status.
 
-PID files live in ~/.claude-context-engine/pids/:
+PID files live in <storage_base>/pids/ where storage_base is resolved
+from config.yaml (defaults to ~/.claude-context-engine):
   ollama.pid       PID of the ollama process CCE started
   dashboard.pid    PID of the dashboard process CCE started
   dashboard.port   Port the dashboard is running on
@@ -83,26 +84,31 @@ def _ollama_running() -> bool:
 def _mcp_running() -> bool:
     """Check if a cce serve process is running via pgrep (or ps fallback)."""
     try:
-        # Try pgrep first — available on macOS and Linux, avoids self-match
         result = subprocess.run(
             ["pgrep", "-f", "cce serve"],
             capture_output=True, text=True, timeout=3,
         )
-        return result.returncode == 0
+        if result.returncode == 0:
+            return True
+        # returncode 1 = no matches (normal). Any other code or stderr
+        # suggests pgrep itself failed — fall through to ps fallback.
+        if result.returncode == 1 and not result.stderr.strip():
+            return False
     except FileNotFoundError:
-        # pgrep not available — fall back to ps with careful matching
-        try:
-            result = subprocess.run(
-                ["ps", "aux"], capture_output=True, text=True, timeout=3,
-            )
-            for line in result.stdout.splitlines():
-                if "cce serve" in line and "grep" not in line:
-                    return True
-            return False
-        except Exception:
-            return False
+        pass
     except Exception:
-        return False
+        pass
+    # Fallback: ps with grep exclusion
+    try:
+        result = subprocess.run(
+            ["ps", "aux"], capture_output=True, text=True, timeout=3,
+        )
+        for line in result.stdout.splitlines():
+            if "cce serve" in line and "grep" not in line:
+                return True
+    except Exception:
+        pass
+    return False
 
 
 # ── Public status API ─────────────────────────────────────────────────────────

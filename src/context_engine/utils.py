@@ -1,4 +1,5 @@
 """Shared utilities for CCE."""
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -14,7 +15,7 @@ def resolve_cce_binary() -> str:
         Path.home() / ".local" / "bin" / "cce",
         Path("/usr/local/bin/cce"),
     ]:
-        if candidate.exists():
+        if candidate.is_file() and os.access(candidate, os.X_OK):
             return str(candidate)
     found = shutil.which("cce")
     if found:
