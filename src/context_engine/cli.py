@@ -87,6 +87,15 @@ Other useful MCP tools:
 - `related_context` — find what calls/imports a function
 - `session_recall` — retrieve decisions from past sessions
 - `record_decision` — persist an important decision for future sessions
+
+## Output Style
+
+Be concise. Lead with the answer or action, not reasoning. Skip filler words,
+preamble, and phrases like "I'll help you with that" or "Certainly!". Prefer
+fragments over full sentences in explanations. No trailing summaries of what
+you just did. One sentence if it fits.
+
+Code blocks, file paths, commands, and error messages are always written in full.
 """
 
 
