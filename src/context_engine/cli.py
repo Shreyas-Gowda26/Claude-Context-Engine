@@ -870,7 +870,23 @@ async def _run_index(
     from context_engine.indexer.pipeline import run_indexing
 
     log_fn = (lambda msg: click.echo(msg)) if verbose else None
-    result = await run_indexing(config, project_dir, full=full, target_path=target_path, log_fn=log_fn)
+
+    _showed_progress = False
+
+    def progress_fn(current: int, total: int) -> None:
+        nonlocal _showed_progress
+        if not verbose and sys.stdout.isatty():
+            click.echo(f"\r  Scanning... {current}/{total} files", nl=False)
+            _showed_progress = True
+
+    result = await run_indexing(
+        config, project_dir, full=full, target_path=target_path,
+        log_fn=log_fn, progress_fn=progress_fn,
+    )
+
+    if _showed_progress:
+        click.echo()  # clear the progress line
+
     for err in result.errors:
         click.echo(f"Error: {err}", err=True)
     click.echo(
