@@ -380,13 +380,15 @@ def status(ctx: click.Context, output_json: bool, oneline: bool) -> None:
         try:
             stats = _json.loads(stats_path.read_text())
             raw = stats.get("raw_tokens", 0)
+            full = stats.get("full_file_tokens", 0)
             served = stats.get("served_tokens", 0)
             queries = stats.get("queries", 0)
-            saved = raw - served
-            pct = int(saved / raw * 100) if raw > 0 else 0
+            baseline = max(full, raw) if full > 0 else raw
+            saved = max(0, baseline - served)
+            pct = int(saved / baseline * 100) if baseline > 0 else 0
             click.echo()
             click.echo(f"  {header('Token savings')} {dim(f'({queries} queries)')}")
-            click.echo(f"    Raw tokens:    {value(f'{raw:,}')}")
+            click.echo(f"    Full codebase: {value(f'{baseline:,}')}")
             click.echo(f"    Served tokens: {value(f'{served:,}')}")
             click.echo(f"    {CHECK} Saved:         {success(f'{saved:,}')} {dim(f'({pct}%)')}")
         except (KeyError, _json.JSONDecodeError):
