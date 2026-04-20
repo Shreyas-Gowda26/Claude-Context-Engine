@@ -48,6 +48,33 @@ class LocalBackend:
     ) -> list[GraphNode]:
         return await self._graph_store.get_neighbors(node_id, edge_type)
 
+    async def get_related_file_paths(self, file_paths: list[str]) -> list[str]:
+        """Return file paths reachable via CALLS or IMPORTS edges from the given files.
+
+        Used by the retriever for 1-hop graph expansion: if a result is in
+        auth.py, also surface chunks from files that auth.py calls or imports.
+        """
+        from context_engine.models import EdgeType, NodeType
+
+        input_set = set(file_paths)
+        related: set[str] = set()
+
+        for fp in file_paths:
+            nodes = await self._graph_store.get_nodes_by_file(fp)
+            for node in nodes:
+                if node.node_type not in (NodeType.FUNCTION, NodeType.CLASS,
+                                          NodeType.FILE, NodeType.MODULE):
+                    continue
+                for edge_type in (EdgeType.CALLS, EdgeType.IMPORTS):
+                    neighbors = await self._graph_store.get_neighbors(
+                        node.id, edge_type
+                    )
+                    for neighbor in neighbors:
+                        if neighbor.file_path and neighbor.file_path not in input_set:
+                            related.add(neighbor.file_path)
+
+        return list(related)
+
     async def get_chunk_by_id(self, chunk_id: str) -> Chunk | None:
         return await self._vector_store.get_by_id(chunk_id)
 

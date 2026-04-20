@@ -109,6 +109,36 @@ class HybridRetriever:
         scored.sort(key=lambda x: x[1], reverse=True)
         ranked = [chunk for chunk, _ in scored[:top_k]]
 
+        # Graph expansion: fetch 1-2 bonus chunks from files reachable via
+        # CALLS/IMPORTS edges from the top results.
+        if ranked and hasattr(self._backend, "get_related_file_paths"):
+            try:
+                top_files = list({c.file_path for c in ranked[:3]})
+                related_files = await self._backend.get_related_file_paths(top_files)
+                qe_list = (
+                    list(query_embedding)
+                    if not isinstance(query_embedding, list)
+                    else query_embedding
+                )
+                for rel_fp in related_files[:2]:  # max 2 bonus files
+                    bonus = await self._backend.vector_search(
+                        query_embedding=qe_list,
+                        top_k=2,
+                        filters={"file_path": rel_fp},
+                    )
+                    for b in bonus:
+                        dedup_key = (
+                            f"{b.file_path}:{b.start_line}-{b.end_line}"
+                        )
+                        if dedup_key not in seen_keys:
+                            seen_keys.add(dedup_key)
+                            dist = b.metadata.get("_distance", 1.0)
+                            b.confidence_score = max(0.0, 1.0 - dist) * 0.85
+                            if b.confidence_score >= confidence_threshold:
+                                ranked.append(b)
+            except Exception as exc:
+                log.debug("Graph expansion skipped: %s", exc)
+
         if max_tokens is None:
             return ranked
 
