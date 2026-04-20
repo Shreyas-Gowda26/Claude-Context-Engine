@@ -342,10 +342,13 @@ class TestGraphExpansion:
         backend = LocalBackend(base_path=str(project_storage))
         retriever = HybridRetriever(backend=backend, embedder=embedder)
 
-        chunks = await retriever.retrieve("login authentication", top_k=5)
+        chunks = await retriever.retrieve("login authentication", top_k=10)
         file_paths = {c.file_path for c in chunks}
         # auth.py should be a direct hit
         assert "auth.py" in file_paths, f"auth.py not found in {file_paths}"
+        # utils.py should appear via graph expansion (auth.py imports it)
+        # or via vector similarity — either way it must be discoverable
+        assert "utils.py" in file_paths, f"utils.py not found in {file_paths} — graph expansion may be broken"
 
 
 # ── Bootstrap builder ──────────────────────────────────────────────────

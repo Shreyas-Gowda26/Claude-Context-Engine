@@ -101,14 +101,8 @@ Code blocks, file paths, commands, and error messages are always written in full
 
 def _resolve_cce_cmd() -> str:
     """Find the globally installed cce binary path."""
-    import shutil
-    for candidate in [
-        Path.home() / ".local" / "bin" / "cce",
-        Path("/usr/local/bin/cce"),
-    ]:
-        if candidate.exists():
-            return str(candidate)
-    return shutil.which("cce") or "cce"
+    from context_engine.utils import resolve_cce_binary
+    return resolve_cce_binary()
 
 
 def _has_cce_hook(hook_list: list, marker: str) -> bool:

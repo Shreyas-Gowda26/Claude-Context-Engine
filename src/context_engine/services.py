@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import signal
 import socket
 import subprocess
-import sys
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -27,7 +25,8 @@ def _storage_base() -> Path:
         from context_engine.config import load_config
         config = load_config()
         return Path(config.storage_path).parent
-    except Exception:
+    except Exception as exc:
+        log.debug("Could not load config for storage base, using default: %s", exc)
         return Path.home() / ".claude-context-engine"
 
 
@@ -81,27 +80,8 @@ def _ollama_running() -> bool:
         return False
 
 
-def _resolve_cce_binary() -> str:
-    """Find the globally installed cce binary — same logic as cli.py."""
-    for candidate in [
-        Path.home() / ".local" / "bin" / "cce",
-        Path("/usr/local/bin/cce"),
-    ]:
-        if candidate.exists():
-            return str(candidate)
-    found = shutil.which("cce")
-    if found:
-        return found
-    # Last resort: use sys.argv[0] if it looks like cce
-    arg0 = Path(sys.argv[0]).resolve()
-    if arg0.name in ("cce", "claude-context-engine"):
-        return str(arg0)
-    return "cce"
-
-
 def _mcp_running() -> bool:
-    """Check if a cce serve process is running by looking for our PID
-    or using pgrep which is more reliable than grepping ps output."""
+    """Check if a cce serve process is running via pgrep (or ps fallback)."""
     try:
         # Try pgrep first — available on macOS and Linux, avoids self-match
         result = subprocess.run(
@@ -229,7 +209,8 @@ def start_dashboard(port: int = _DASHBOARD_DEFAULT_PORT) -> tuple[bool, str]:
     if status["running"]:
         return False, f"Dashboard is already running at {status['detail']}"
     try:
-        cce_bin = _resolve_cce_binary()
+        from context_engine.utils import resolve_cce_binary
+        cce_bin = resolve_cce_binary()
         proc = subprocess.Popen(
             [cce_bin, "dashboard", "--no-browser", "--port", str(port)],
             stdout=subprocess.DEVNULL,
