@@ -163,6 +163,180 @@ def _dim(msg: str) -> str:
     return _dim_style(msg)
 
 
+def _show_welcome_banner(config) -> None:
+    """Show a welcome banner when cce is run with no subcommand."""
+    import json as _json
+    from importlib.metadata import version as pkg_version
+
+    try:
+        ver = pkg_version("claude-context-engine")
+    except Exception:
+        ver = "?"
+
+    project_dir = Path.cwd()
+    project_name = project_dir.name
+    storage_dir = Path(config.storage_path) / project_name
+
+    # Gather stats
+    chunks = 0
+    queries = 0
+    full_file = 0
+    served = 0
+    saved_pct = 0
+    try:
+        from context_engine.storage.vector_store import VectorStore
+        vs = VectorStore(db_path=str(storage_dir / "vectors"))
+        chunks = vs.count()
+    except Exception:
+        pass
+    stats_path = storage_dir / "stats.json"
+    if stats_path.exists():
+        try:
+            stats = _json.loads(stats_path.read_text())
+            queries = stats.get("queries", 0)
+            full_file = stats.get("full_file_tokens", 0)
+            served = stats.get("served_tokens", 0)
+            if full_file > 0:
+                saved_pct = int((full_file - served) / full_file * 100)
+        except Exception:
+            pass
+
+    # Ollama check
+    ollama_running = False
+    ollama_model = getattr(config, "compression_model", "phi3:mini")
+    try:
+        import httpx
+        resp = httpx.get("http://localhost:11434/api/tags", timeout=1.0)
+        if resp.status_code == 200:
+            ollama_running = True
+    except Exception:
+        pass
+
+    # Embedding model
+    embedding_model = getattr(config, "embedding_model", "BAAI/bge-small-en-v1.5")
+    compression_mode = f"LLM summarization ({ollama_model})" if ollama_running else "truncation"
+    indexed = chunks > 0
+
+    # Build box content
+    s = click.style
+    d = lambda t: s(t, dim=True)
+    c = lambda t: s(t, fg="cyan")
+    g = lambda t: s(t, fg="green")
+    w = lambda t: s(t, fg="white", bold=True)
+    y = lambda t: s(t, fg="yellow")
+
+    # Box width
+    bw = 80
+    border = d("│")
+
+    def pad_line(left: str, right: str = "", raw_left_len: int = 0, raw_right_len: int = 0) -> str:
+        """Build a bordered line with left and right columns."""
+        inner = bw - 4  # 2 for borders, 2 for padding
+        mid = inner - raw_left_len - raw_right_len
+        if mid < 1:
+            mid = 1
+        return f"{border} {left}{' ' * mid}{right} {border}"
+
+    def center_line(text: str, raw_len: int = 0) -> str:
+        total = bw - 2
+        pad = max(0, (total - raw_len) // 2)
+        rem = total - pad - raw_len
+        return f"{border}{' ' * pad}{text}{' ' * rem}{border}"
+
+    def divider() -> str:
+        return f"{border}{d('─' * (bw - 2))}{border}"
+
+    # Top border
+    title = f" Claude Context Engine v{ver} "
+    top_dashes = bw - 2 - len(title)
+    left_d = top_dashes // 2
+    right_d = top_dashes - left_d
+    top = d("╭") + d("─" * left_d) + c(title) + d("─" * right_d) + d("╮")
+
+    # Bottom border
+    bottom = d("╰") + d("─" * (bw - 2)) + d("╯")
+
+    # Logo
+    logo_lines = [
+        "▐▛███▜▌",
+        "▝▜█████▛▘",
+        "▘▘ ▝▝",
+    ]
+
+    click.echo()
+    click.echo(top)
+    click.echo(center_line("", 0))
+
+    # Project name centered
+    click.echo(center_line(w(project_name), len(project_name)))
+    click.echo(center_line("", 0))
+
+    # Logo centered
+    for line in logo_lines:
+        click.echo(center_line(c(line), len(line)))
+    click.echo(center_line("", 0))
+
+    # Info line centered
+    profile = config.detect_resource_profile()
+    info = f"v{ver} · {profile} profile · {project_dir}"
+    click.echo(center_line(d(info), len(info)))
+    click.echo(center_line("", 0))
+    click.echo(divider())
+
+    # Right panel: status details
+    if indexed:
+        lines = [
+            (f"  {g('●')} Indexed", f"{c(f'{chunks:,}')} chunks", 9, len(f"{chunks:,}") + 7),
+            (f"  {g('●')} Embedding", f"{c(embedding_model)}", 12, len(embedding_model)),
+            (f"  {g('●') if ollama_running else y('○')} Ollama",
+             f"{g('running') if ollama_running else y('not running')} ({compression_mode})",
+             9,
+             (7 if ollama_running else 11) + len(f" ({compression_mode})")),
+            (f"  {g('●')} Compression", f"{c(config.compression_level)}", 14, len(config.compression_level)),
+        ]
+        if queries > 0:
+            lines.append(
+                (f"  {g('●')} Savings",
+                 f"{g(f'{saved_pct}%')} saved over {c(str(queries))} queries",
+                 10, len(f"{saved_pct}%") + len(f" saved over {queries} queries"))
+            )
+        elif full_file > 0:
+            ff_str = f"{full_file:,}"
+            lines.append(
+                (f"  {d('○')} Savings",
+                 f"{d('no queries yet')} ({c(ff_str)} tokens indexed)",
+                 10, len(f"no queries yet ({ff_str} tokens indexed)"))
+            )
+    else:
+        lines = [
+            (f"  {y('○')} Not indexed", d("run: cce init"), 14, len("run: cce init")),
+        ]
+
+    for left, right, rl, rr in lines:
+        click.echo(pad_line(left, right, rl, rr))
+
+    click.echo(center_line("", 0))
+    click.echo(divider())
+
+    # Tips
+    tips_header = "  Quick start"
+    click.echo(pad_line(d(tips_header), "", len(tips_header), 0))
+    tip_cmds = [
+        ("cce status", "Full diagnostic info"),
+        ("cce savings", "Token savings report"),
+        ("cce list", "All available commands"),
+    ]
+    if not indexed:
+        tip_cmds.insert(0, ("cce init", "Index project and connect to Claude Code"))
+    for cmd, desc in tip_cmds:
+        tip = f"  {c(cmd)}  {d(desc)}"
+        click.echo(pad_line(tip, "", len(cmd) + len(desc) + 4, 0))
+
+    click.echo(center_line("", 0))
+    click.echo(bottom)
+    click.echo()
+
+
 def _preflight_check(config) -> None:
     """Verify all required components are ready before indexing starts.
 
@@ -222,7 +396,7 @@ def _ensure_claude_md(project_dir: Path) -> None:
         _ok("CLAUDE.md created with CCE instructions")
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(package_name="claude-context-engine")
 @click.option("--verbose", "-v", is_flag=True, help="Enable detailed logging output")
 @click.pass_context
@@ -232,6 +406,9 @@ def main(ctx: click.Context, verbose: bool) -> None:
     project_path = Path.cwd() / PROJECT_CONFIG_NAME
     ctx.obj["config"] = load_config(project_path=project_path if project_path.exists() else None)
     ctx.obj["verbose"] = verbose
+
+    if ctx.invoked_subcommand is None:
+        _show_welcome_banner(ctx.obj["config"])
 
 
 @main.command()
