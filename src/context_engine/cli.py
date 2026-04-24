@@ -367,11 +367,34 @@ def status(ctx: click.Context, output_json: bool, oneline: bool) -> None:
         click.echo(_json.dumps(out, indent=2))
         return
 
-    from context_engine.cli_style import header, label, value, dim, success, warn, CHECK, DOT
+    from context_engine.cli_style import header, label, value, dim, success, warn, CHECK, DOT, CROSS
 
     click.echo(f"  {label('Storage path')}     {value(config.storage_path)}")
     click.echo(f"  {label('Compression')}      {value(config.compression_level)}")
     click.echo(f"  {label('Resource profile')} {value(config.detect_resource_profile())}")
+
+    # Embedding model
+    model_name = getattr(config, "embedding_model", "BAAI/bge-small-en-v1.5")
+    click.echo(f"  {label('Embedding model')} {value(model_name)}")
+
+    # Ollama status
+    ollama_status = click.style("not running", fg="yellow")
+    compression_mode = "truncation (signatures + docstrings)"
+    try:
+        import httpx
+        resp = httpx.get("http://localhost:11434/api/tags", timeout=2.0)
+        if resp.status_code == 200:
+            ollama_model = getattr(config, "compression_model", "phi3:mini")
+            models = [m.get("name", "") for m in resp.json().get("models", [])]
+            if any(ollama_model in m for m in models):
+                ollama_status = click.style("running", fg="green") + dim(f" ({ollama_model})")
+                compression_mode = f"LLM summarization via {ollama_model}"
+            else:
+                ollama_status = click.style("running", fg="green") + dim(f" (model {ollama_model} not found)")
+    except Exception:
+        pass
+    click.echo(f"  {label('Ollama')}          {ollama_status}")
+    click.echo(f"  {label('Chunk compress')}  {value(compression_mode)}")
 
     # Token savings
     project_name = Path.cwd().name
