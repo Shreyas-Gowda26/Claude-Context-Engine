@@ -217,7 +217,7 @@ def _show_welcome_banner(config) -> None:
     compression_mode = f"LLM summarization ({ollama_model})" if ollama_running else "truncation"
     indexed = chunks > 0
 
-    # Build box content
+    # Styling helpers
     s = click.style
     d = lambda t: s(t, dim=True)
     c = lambda t: s(t, fg="cyan")
@@ -225,107 +225,110 @@ def _show_welcome_banner(config) -> None:
     w = lambda t: s(t, fg="white", bold=True)
     y = lambda t: s(t, fg="yellow")
 
-    # Box width
-    bw = 80
-    border = d("│")
-
-    def pad_line(left: str, right: str = "", raw_left_len: int = 0, raw_right_len: int = 0) -> str:
-        """Build a bordered line with left and right columns."""
-        inner = bw - 4  # 2 for borders, 2 for padding
-        mid = inner - raw_left_len - raw_right_len
-        if mid < 1:
-            mid = 1
-        return f"{border} {left}{' ' * mid}{right} {border}"
-
-    def center_line(text: str, raw_len: int = 0) -> str:
-        total = bw - 2
-        pad = max(0, (total - raw_len) // 2)
-        rem = total - pad - raw_len
-        return f"{border}{' ' * pad}{text}{' ' * rem}{border}"
-
-    def divider() -> str:
-        return f"{border}{d('─' * (bw - 2))}{border}"
-
-    # Top border
-    title = f" Claude Context Engine v{ver} "
-    top_dashes = bw - 2 - len(title)
-    left_d = top_dashes // 2
-    right_d = top_dashes - left_d
-    top = d("╭") + d("─" * left_d) + c(title) + d("─" * right_d) + d("╮")
-
-    # Bottom border
-    bottom = d("╰") + d("─" * (bw - 2)) + d("╯")
-
-    # Icon + tagline (random each run)
     import random
     icons = ["⛁", "◈", "⬡", "◉", "⏣", "⎔", "▣", "◇", "⬢", "❖"]
     icon = random.choice(icons)
-    tagline = f"{icon}  {project_name}  {icon}"
+    profile = config.detect_resource_profile()
 
+    # Layout: total width 100, left col 48, separator 1, right col 49
+    W = 100
+    L = 48  # left column inner width
+    R = 49  # right column inner width
+    bd = d("│")
+    sep = d("│")
+
+    def _pad(text: str, width: int, raw_len: int, align: str = "left") -> str:
+        gap = width - raw_len
+        if gap < 0:
+            gap = 0
+        if align == "center":
+            lp = gap // 2
+            rp = gap - lp
+            return " " * lp + text + " " * rp
+        return text + " " * gap
+
+    # Top border (full width, row 1 header)
+    title = f" Claude Context Engine v{ver} "
+    dashes = W - 2 - len(title)
+    ld = dashes // 2
+    rd = dashes - ld
+    top = d("╭") + d("─" * ld) + c(title) + d("─" * rd) + d("╮")
+
+    # Mid divider
+    mid_div = d("├") + d("─" * L) + d("┬") + d("─" * R) + d("┤")
+
+    # Bottom border
+    bottom = d("╰") + d("─" * L) + d("┴") + d("─" * R) + d("╯")
+
+    # Section divider within right column
+    def right_div() -> str:
+        return d("├") + d("─" * L) + d("┤") + d("─" * R) + d("┤")
+
+    def row(left_text: str, left_raw: int, right_text: str, right_raw: int) -> str:
+        return f"{bd}{' '}{_pad(left_text, L - 1, left_raw)}{sep}{' '}{_pad(right_text, R - 1, right_raw)}{bd}"
+
+    def full_row(text: str, raw_len: int, align: str = "center") -> str:
+        inner = W - 2
+        return f"{bd}{_pad(text, inner, raw_len, align)}{bd}"
+
+    # ── Row 1: Title bar (full width) ──
     click.echo()
     click.echo(top)
-    click.echo(center_line("", 0))
-    click.echo(center_line(s(tagline, fg="cyan", bold=True), len(tagline)))
-    click.echo(center_line(d("local context engine for Claude Code"), 37))
-    click.echo(center_line("", 0))
 
-    # Info line centered
-    profile = config.detect_resource_profile()
-    info = f"v{ver} · {profile} profile · {project_dir}"
-    click.echo(center_line(d(info), len(info)))
-    click.echo(center_line("", 0))
-    click.echo(divider())
+    # CCE logo + project name (centered, full width)
+    logo_text = f"{icon}  C C E  {icon}"
+    click.echo(full_row("", 0))
+    click.echo(full_row(s(logo_text, fg="cyan", bold=True), len(logo_text)))
+    click.echo(full_row(w(project_name), len(project_name)))
+    click.echo(full_row(d(f"v{ver} · {profile} · {project_dir}"), len(f"v{ver} · {profile} · {project_dir}")))
+    click.echo(full_row("", 0))
 
-    # Right panel: status details
+    # ── Row 2: Two columns ──
+    click.echo(mid_div)
+
+    # Build left column lines (status)
+    left_lines: list[tuple[str, int]] = []
     if indexed:
-        lines = [
-            (f"  {g('●')} Indexed", f"{c(f'{chunks:,}')} chunks", 9, len(f"{chunks:,}") + 7),
-            (f"  {g('●')} Embedding", f"{c(embedding_model)}", 12, len(embedding_model)),
-            (f"  {g('●') if ollama_running else y('○')} Ollama",
-             f"{g('running') if ollama_running else y('not running')} ({compression_mode})",
-             9,
-             (7 if ollama_running else 11) + len(f" ({compression_mode})")),
-            (f"  {g('●')} Compression", f"{c(config.compression_level)}", 14, len(config.compression_level)),
-        ]
+        left_lines.append((f"  {g('●')} Indexed     {c(f'{chunks:,}')} chunks", 11 + len(f"{chunks:,}") + 7))
+        left_lines.append((f"  {g('●')} Embedding   {c(embedding_model)}", 14 + len(embedding_model)))
+        ollama_val = f"{g('running')}" if ollama_running else f"{y('not running')}"
+        ollama_raw = 7 if ollama_running else 11
+        left_lines.append((f"  {g('●') if ollama_running else y('○')} Ollama      {ollama_val}", 14 + ollama_raw))
+        left_lines.append((f"  {g('●')} Compress    {c(compression_mode)}", 14 + len(compression_mode)))
         if queries > 0:
-            lines.append(
-                (f"  {g('●')} Savings",
-                 f"{g(f'{saved_pct}%')} saved over {c(str(queries))} queries",
-                 10, len(f"{saved_pct}%") + len(f" saved over {queries} queries"))
-            )
+            sav = f"{g(f'{saved_pct}%')} over {c(str(queries))} queries"
+            left_lines.append((f"  {g('●')} Savings     {sav}", 14 + len(f"{saved_pct}%") + len(f" over {queries} queries")))
         elif full_file > 0:
-            ff_str = f"{full_file:,}"
-            lines.append(
-                (f"  {d('○')} Savings",
-                 f"{d('no queries yet')} ({c(ff_str)} tokens indexed)",
-                 10, len(f"no queries yet ({ff_str} tokens indexed)"))
-            )
+            left_lines.append((f"  {d('○')} Savings     {d('no queries yet')}", 14 + len("no queries yet")))
     else:
-        lines = [
-            (f"  {y('○')} Not indexed", d("run: cce init"), 14, len("run: cce init")),
-        ]
+        left_lines.append((f"  {y('○')} Not indexed yet", 18))
+        left_lines.append((f"    {d('run: cce init')}", 4 + len("run: cce init")))
 
-    for left, right, rl, rr in lines:
-        click.echo(pad_line(left, right, rl, rr))
-
-    click.echo(center_line("", 0))
-    click.echo(divider())
-
-    # Tips
-    tips_header = "  Quick start"
-    click.echo(pad_line(d(tips_header), "", len(tips_header), 0))
-    tip_cmds = [
-        ("cce status", "Full diagnostic info"),
-        ("cce savings", "Token savings report"),
-        ("cce list", "All available commands"),
-    ]
+    # Build right column lines (tips)
+    right_lines: list[tuple[str, int]] = []
+    right_lines.append((w("Tips"), 4))
     if not indexed:
-        tip_cmds.insert(0, ("cce init", "Index project and connect to Claude Code"))
-    for cmd, desc in tip_cmds:
-        tip = f"  {c(cmd)}  {d(desc)}"
-        click.echo(pad_line(tip, "", len(cmd) + len(desc) + 4, 0))
+        right_lines.append((f" {c('cce init')}      {d('setup project')}", 1 + 8 + 6 + 13))
+    right_lines.append((f" {c('cce status')}    {d('full diagnostic info')}", 1 + 10 + 4 + 20))
+    right_lines.append((f" {c('cce savings')}   {d('token savings report')}", 1 + 11 + 3 + 20))
+    right_lines.append((f" {c('cce list')}      {d('all available commands')}", 1 + 8 + 6 + 22))
+    right_lines.append(("", 0))
+    right_lines.append((d("─" * (R - 1)), R - 1))
+    right_lines.append((f" {d('Embedding:')}  {c(embedding_model)}", 1 + 10 + 2 + len(embedding_model)))
+    ollama_str = g("running") if ollama_running else y("not running")
+    ollama_str_len = 7 if ollama_running else 11
+    right_lines.append((f" {d('Ollama:')}     {ollama_str}", 1 + 7 + 5 + ollama_str_len))
 
-    click.echo(center_line("", 0))
+    # Pad both columns to same height
+    max_rows = max(len(left_lines), len(right_lines))
+    while len(left_lines) < max_rows:
+        left_lines.append(("", 0))
+    while len(right_lines) < max_rows:
+        right_lines.append(("", 0))
+
+    for (lt, ll), (rt, rl) in zip(left_lines, right_lines):
+        click.echo(row(lt, ll, rt, rl))
+
     click.echo(bottom)
     click.echo()
 
