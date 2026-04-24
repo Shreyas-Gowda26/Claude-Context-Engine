@@ -578,6 +578,9 @@ def _run_savings_report(config, *, as_json: bool = False, all_projects: bool = F
     def _fmt_k(n: int) -> str:
         return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
 
+    _FILLED = "⛁"
+    _EMPTY = "⛶"
+
     def _grid_rows(used_pct: float, rows: int) -> list[str]:
         total = _COLS * rows
         filled = max(0, min(total, round(used_pct * total)))
@@ -586,9 +589,9 @@ def _run_savings_report(config, *, as_json: bool = False, all_projects: bool = F
             cells = []
             for c in range(_COLS):
                 if r * _COLS + c < filled:
-                    cells.append(click.style("█", fg="cyan"))
+                    cells.append(click.style(_FILLED, fg="cyan"))
                 else:
-                    cells.append(click.style("░", dim=True))
+                    cells.append(click.style(_EMPTY, dim=True))
             result.append("     " + " ".join(cells))
         return result
 
@@ -608,8 +611,8 @@ def _run_savings_report(config, *, as_json: bool = False, all_projects: bool = F
             f"  {value(_fmt_k(served))}{dim('/')}{value(_fmt_k(baseline))} {dim('tokens used')} {dim(f'({used_pct_int}%)')}",
             "",
             f"  {header('Token savings')}",
-            f"  {label('With CCE:')}    {value(f'{served:>10,}')} {dim('tokens')}  {dim(f'({used_pct_int}%)')}",
-            f"  {success('Saved:')}       {success(f'{saved:>10,}')} {dim('tokens')}  {success(f'({saved_pct}%)')}",
+            f"  {click.style(_FILLED, fg='cyan')} {label('With CCE:')}    {value(f'{served:>10,}')} {dim('tokens')}  {dim(f'({used_pct_int}%)')}",
+            f"  {click.style(_EMPTY, dim=True)} {success('Tokens saved:')} {success(f'{saved:>10,}')} {dim('tokens')}  {success(f'({saved_pct}%)')}",
         ]
 
         grid = _grid_rows(used_pct, rows=len(labels))
