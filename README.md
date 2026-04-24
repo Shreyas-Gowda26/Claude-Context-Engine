@@ -119,7 +119,7 @@ cce init
 
 ### 3. Restart Claude Code
 
-Once restarted, Claude can call `context_search` and seven other MCP tools automatically — no setup needed per session.
+Once restarted, Claude can call `context_search` and eight other MCP tools automatically — no setup needed per session.
 
 ---
 
@@ -134,6 +134,7 @@ Full documentation is available on the [GitHub Wiki](https://github.com/fazleela
 | [How It Works](https://github.com/fazleelahhee/Claude-Context-Engine/wiki/How-It-Works) | Full 9-stage pipeline: indexing, retrieval, compression |
 | [CLI Reference](https://github.com/fazleelahhee/Claude-Context-Engine/wiki/CLI-Reference) | Every command with expected output |
 | [Tech Stack](https://github.com/fazleelahhee/Claude-Context-Engine/wiki/Tech-Stack) | Every library: what it does, where it's used, why chosen |
+| [Project Commands](https://github.com/fazleelahhee/Claude-Context-Engine/wiki/Project-Commands) | Rules, preferences, and per-project commands for Claude |
 | [Configuration](https://github.com/fazleelahhee/Claude-Context-Engine/wiki/Configuration) | All config options, global and per-project |
 
 ---
@@ -147,11 +148,11 @@ CCE is designed to run on a standard developer laptop without special hardware.
 | Component | Size | Notes |
 |-----------|------|-------|
 | CCE source | ~500 KB | The package itself |
-| LanceDB | ~98 MB | Embedded vector database |
+| sqlite-vec | ~2 MB | Vector search extension for SQLite |
 | ONNX Runtime | ~66 MB | Inference engine for the embedding model |
 | fastembed | ~1 MB | Thin wrapper around ONNX Runtime |
-| Other dependencies | ~285 MB | click, fastapi, tree-sitter, mcp, httpx, etc. |
-| **Total installed** | **~450 MB** | One-time, in your uv/pipx tool environment |
+| Other dependencies | ~135 MB | click, fastapi, tree-sitter, mcp, httpx, etc. |
+| **Total installed** | **~204 MB** | One-time, in your uv/pipx tool environment |
 
 ### Embedding model
 
@@ -227,7 +228,7 @@ Savings grow over time. Each query retrieves a targeted slice rather than an ent
 
 ### 1. Indexing
 
-CCE walks your repository, hashes each file, and builds three stores: a LanceDB vector index, a SQLite FTS5 full-text index, and a SQLite code graph. Git hooks keep all three current on every commit.
+CCE walks your repository, hashes each file, and builds three stores: a sqlite-vec vector index, a SQLite FTS5 full-text index, and a SQLite code graph. Git hooks keep all three current on every commit.
 
 ### 2. Semantic Chunking
 
@@ -242,7 +243,7 @@ payments.py  (800 lines, ~12k tokens)
 
 ### 3. Hybrid Retrieval
 
-Every `context_search` runs vector search (semantic similarity via LanceDB) and BM25 keyword search (via SQLite FTS5) in parallel. Results are merged with Reciprocal Rank Fusion so exact-match identifiers rank as well as semantic concepts.
+Every `context_search` runs vector search (semantic similarity via sqlite-vec) and BM25 keyword search (via SQLite FTS5) in parallel. Results are merged with Reciprocal Rank Fusion so exact-match identifiers rank as well as semantic concepts.
 
 ### 4. Graph-Aware Expansion
 
@@ -348,10 +349,11 @@ Once connected, Claude has these tools available automatically:
 |------|-------------|
 | `context_search` | Hybrid vector + BM25 search with graph expansion |
 | `expand_chunk` | Get full source for a compressed or overflow chunk |
-| `session_recall` | Recall past architectural decisions |
+| `related_context` | Find related code via graph edges (calls, imports) |
+| `session_recall` | Recall past decisions and code area notes |
 | `record_decision` | Save a decision for future sessions |
 | `record_code_area` | Record which files were worked in and why |
-| `index_status` | Check index health and token savings |
+| `index_status` | Check when the index was last updated |
 | `reindex` | Trigger re-indexing of a file or the full project |
 | `set_output_compression` | Adjust response verbosity: `off`, `lite`, `standard`, `max` |
 
@@ -501,7 +503,7 @@ MIT. See [LICENSE](LICENSE).
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 - [MCP](https://modelcontextprotocol.io)
-- [LanceDB](https://lancedb.com/)
+- [sqlite-vec](https://github.com/asg017/sqlite-vec)
 - [Tree-sitter](https://tree-sitter.github.io/)
 - [fastembed](https://github.com/qdrant/fastembed)
 - [Ollama](https://ollama.com/)

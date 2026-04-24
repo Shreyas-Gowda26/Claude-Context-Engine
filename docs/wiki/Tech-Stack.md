@@ -20,7 +20,7 @@ Every library in CCE is here for a specific reason. This page covers all 14 depe
          │                  │
     ┌────▼──────────────────▼──────────────────────┐
     │              Storage Layer                    │
-    │   Vector: lancedb    Graph+FTS: sqlite3       │
+    │   Vector: sqlite-vec    Graph+FTS: sqlite3     │
     └──────────────────────────────────────────────┘
          │
     ┌────▼──────────────────────────────────────────┐
@@ -103,7 +103,7 @@ TypeScript covers `.ts`, `.tsx`, and `.jsx` because the TypeScript grammar is a 
 from fastembed import TextEmbedding
 ```
 
-Every chunk produced by tree-sitter gets converted into a 384-dimensional vector by fastembed. That vector is what gets stored in LanceDB and compared at query time. Fastembed also embeds the query itself before running similarity search.
+Every chunk produced by tree-sitter gets converted into a 384-dimensional vector by fastembed. That vector is what gets stored in sqlite-vec and compared at query time. Fastembed also embeds the query itself before running similarity search.
 
 **The model:** `BAAI/bge-small-en-v1.5` (60MB, downloaded once on first use).
 
@@ -137,7 +137,7 @@ If you wanted to use a sentence-transformers model directly, you would pull in t
 import numpy as np
 ```
 
-Fastembed returns embeddings as NumPy arrays. CCE uses NumPy to stack and process batches of these arrays before writing them to LanceDB. The vector store expects arrays in a specific shape and dtype — NumPy handles that conversion.
+Fastembed returns embeddings as NumPy arrays. CCE uses NumPy to stack and process batches of these arrays before writing them to the vector store. The vector store expects arrays in a specific shape and dtype — NumPy handles that conversion.
 
 **Why it is a separate dependency:** NumPy ships as a fastembed transitive dependency anyway. CCE lists it explicitly because the embedder code directly calls `np.vstack` and accesses `.tolist()` on arrays. If fastembed changes its return format, the explicit dependency makes the version constraint visible.
 
@@ -169,36 +169,40 @@ The git `post-commit` hook is the primary mechanism for keeping the index curren
 
 ## Storage
 
-### lancedb
+### sqlite-vec
 
-**What it is:** An embedded columnar vector database.
+**What it is:** A SQLite extension for vector similarity search.
 
 **Where in CCE:** `src/context_engine/storage/vector_store.py`
 
 ```python
-import lancedb
+import sqlite_vec
 ```
 
-LanceDB stores the 384-dimensional embedding for each chunk alongside metadata (file path, start line, end line, content). At query time, it runs approximate nearest-neighbor (ANN) search using IVF-SQ indexing to find the most semantically similar chunks.
+sqlite-vec stores the 384-dimensional embedding for each chunk in a `vec0` virtual table alongside a regular SQLite table for metadata (file path, start line, end line, content). At query time, it runs cosine distance search to find the most semantically similar chunks.
 
-CCE also uses LanceDB's filtered search for graph expansion:
+CCE uses two tables: `chunks` for metadata and `chunks_vec` for embeddings, joined by rowid:
 
 ```python
-# Only search within files related to the primary results
-results = table.search(query_vector).where(f"file_path IN {related_files}").limit(2)
+# Vector search with cosine distance
+rows = conn.execute("""
+    SELECT c.*, v.distance FROM chunks_vec v
+    JOIN chunks c ON c.rowid = v.rowid
+    WHERE v.embedding MATCH ? AND k = ?
+""", (query_bytes, top_k))
 ```
 
-**Why LanceDB over alternatives:**
+**Why sqlite-vec:**
 
 | Database | Problem for CCE |
 |----------|----------------|
-| Chroma | Slower writes, higher memory use, less mature at time of evaluation |
+| Chroma | Slower writes, higher memory use |
 | Qdrant / Weaviate | Require a running server process. Wrong for a local CLI tool. |
 | pgvector | Requires PostgreSQL installed. Heavyweight. |
 | FAISS | Fast but no built-in persistence, no metadata filtering |
-| sqlite-vec | Newer project, less battle-tested for ANN at this scale |
+| LanceDB | Works well but adds ~217 MB to install size (with pyarrow) |
 
-LanceDB is embedded (runs in-process), stores data as files in a directory, supports SQL-style `WHERE` clauses on metadata, and uses a columnar format (Lance) that gives good compression. No server to start. No Docker. No config.
+sqlite-vec is ~2 MB, runs as a SQLite extension (in-process), uses WAL mode for concurrent reads/writes, and delivers the same search quality as LanceDB at 54% smaller install size.
 
 **Storage location:** `~/.claude-context-engine/projects/<name>/vectors/`
 
@@ -499,7 +503,7 @@ Setuptools reads `pyproject.toml`, discovers the `context_engine` package under 
 |---------|---------|------|----------|
 | click | ≥8.1 | CLI framework | No |
 | pyyaml | ≥6.0 | Config file parsing | No |
-| lancedb | ≥0.6 | Vector storage and ANN search | No |
+| sqlite-vec | ≥0.1.6 | Vector similarity search via SQLite | No |
 | fastembed | ≥0.4 | Local embedding via ONNX Runtime | No |
 | numpy | ≥1.24 | Array processing for embeddings | No |
 | tree-sitter | ≥0.22 | AST parser engine | No |
@@ -520,7 +524,7 @@ Setuptools reads `pyproject.toml`, discovers the `context_engine` package under 
 
 Every core dependency runs entirely on your machine with no network calls:
 
-- **lancedb** — files on disk, in-process
+- **sqlite-vec** — SQLite extension, in-process
 - **fastembed** — ONNX model downloaded once, then local inference
 - **sqlite3** — files on disk, in-process
 - **mcp** — stdio, no network

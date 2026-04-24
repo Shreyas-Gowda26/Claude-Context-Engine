@@ -11,7 +11,7 @@ When you run `cce init` or `cce index`, CCE walks your repository file by file:
 1. **Hash each file.** Files that haven't changed since the last run are skipped.
 2. **Parse into chunks.** For supported languages, CCE uses Tree-sitter to split code into semantic units: functions, classes, and modules. For other file types, it falls back to line-based chunking.
 3. **Embed each chunk.** The embedding model (`BAAI/bge-small-en-v1.5`) converts each chunk into a 384-dimensional vector.
-4. **Store in three indexes:** the vector store (LanceDB), the full-text search store (SQLite FTS5), and the code graph (SQLite).
+4. **Store in three indexes:** the vector store (sqlite-vec), the full-text search store (SQLite FTS5), and the code graph (SQLite).
 
 The git `post-commit` hook installed by `cce init` runs `cce index` automatically after every commit, so the index stays current without any manual effort.
 
@@ -43,7 +43,7 @@ Other file types use line-based chunking with reasonable defaults.
 
 Every `context_search` query runs two searches in parallel and merges the results:
 
-**Vector search.** The query is embedded and compared against all chunk embeddings using cosine similarity. This finds semantically related code even if the exact words differ. Stored in LanceDB.
+**Vector search.** The query is embedded and compared against all chunk embeddings using cosine similarity. This finds semantically related code even if the exact words differ. Stored in sqlite-vec.
 
 **Full-text search.** BM25 keyword ranking over raw chunk content. This finds exact matches that vector search might rank lower. Stored in SQLite FTS5.
 

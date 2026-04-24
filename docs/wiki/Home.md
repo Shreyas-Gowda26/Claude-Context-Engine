@@ -29,14 +29,8 @@ Over 30 queries in a typical project, that difference compounds into real API co
 - [CCE In Practice](CCE-In-Practice) — same scenarios with token counts and internals
 - [How It Works](How-It-Works) — deep dive into indexing, retrieval, graph expansion, compression
 - [CLI Reference](CLI-Reference) — every command with examples and expected output
-<<<<<<< HEAD
 - [Project Commands](Project-Commands) — rules, preferences, and per-project commands for Claude
-- [Tech Stack](Tech-Stack) — what CCE is built on and why each technology was chosen
-||||||| 7c1e367
-- [Tech Stack](Tech-Stack) — what CCE is built on and why each technology was chosen
-=======
 - [Tech Stack](Tech-Stack) — every library: what it does, where it's used, why it was chosen
->>>>>>> origin/main
 - [Configuration](Configuration) — all config options, global and per-project
 
 ## Getting Started in 3 Steps
@@ -52,7 +46,7 @@ cd /path/to/your/project
 cce init
 ```
 
-**Restart Claude Code.** Claude now has `context_search` and seven other MCP tools available automatically.
+**Restart Claude Code.** Claude now has `context_search` and eight other MCP tools available automatically.
 
 ## What Claude Gets
 
@@ -62,9 +56,10 @@ Once CCE is connected, Claude has access to these tools without any setup:
 |------|-------------|
 | `context_search` | Semantic search across your indexed codebase |
 | `expand_chunk` | Get full source for a compressed or overflow chunk |
-| `session_recall` | Recall past architectural decisions |
+| `related_context` | Find related code via graph edges (calls, imports) |
+| `session_recall` | Recall past decisions and code area notes |
 | `record_decision` | Save a decision for future sessions |
 | `record_code_area` | Record which files you worked in and why |
-| `index_status` | Check index health and token savings |
+| `index_status` | Check when the index was last updated |
 | `reindex` | Trigger re-indexing of a file or the full project |
 | `set_output_compression` | Adjust response verbosity (off / lite / standard / max) |
