@@ -29,7 +29,14 @@ Over 30 queries in a typical project, that difference compounds into real API co
 - [CCE In Practice](CCE-In-Practice) — same scenarios with token counts and internals
 - [How It Works](How-It-Works) — deep dive into indexing, retrieval, graph expansion, compression
 - [CLI Reference](CLI-Reference) — every command with examples and expected output
+<<<<<<< HEAD
+- [Project Commands](Project-Commands) — rules, preferences, and per-project commands for Claude
+- [Tech Stack](Tech-Stack) — what CCE is built on and why each technology was chosen
+||||||| 7c1e367
+- [Tech Stack](Tech-Stack) — what CCE is built on and why each technology was chosen
+=======
 - [Tech Stack](Tech-Stack) — every library: what it does, where it's used, why it was chosen
+>>>>>>> origin/main
 - [Configuration](Configuration) — all config options, global and per-project
 
 ## Getting Started in 3 Steps

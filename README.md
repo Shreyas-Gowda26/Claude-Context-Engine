@@ -413,6 +413,18 @@ indexer:
   ignore: [.git, node_modules, dist, coverage, "*.generated.ts"]
 ```
 
+### Project commands, rules & preferences
+
+Tell Claude how to work in each project. Stored in `.cce/commands.yaml`:
+
+```bash
+cce commands add-rule 'Never generate down() in migrations'
+cce commands set-pref database PostgreSQL
+cce commands add before_push 'composer test'
+cce commands add-custom deploy 'kubectl apply -f k8s/'
+```
+
+Claude sees these at every session start and follows them automatically. Supports workspace-level configs for multi-project directories. See the [Project Commands wiki](https://github.com/fazleelahhee/Claude-Context-Engine/wiki/Project-Commands) for details.
 ---
 
 ## Optional Ollama Support
