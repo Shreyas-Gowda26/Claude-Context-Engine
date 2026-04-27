@@ -345,7 +345,7 @@ from aiohttp import web
 
 Powers `cce serve-http` — the HTTP API for remote mode. When CCE is deployed as a shared service (rather than a local per-project tool), other machines can reach it over HTTP. aiohttp serves the REST endpoints for vector search, FTS, graph queries, compression, and stats.
 
-**This is an optional dependency** (`pip install claude-context-engine[http]`). The default local setup never uses aiohttp.
+**This is an optional dependency** (`pip install code-context-engine[http]`). The default local setup never uses aiohttp.
 
 **Why aiohttp not FastAPI here:** serve_http is a thin API layer with no HTML or complex validation. aiohttp is lighter and simpler for raw JSON endpoints. FastAPI's overhead is justified for the dashboard (which has more routes and needs automatic docs), not for this internal API.
 

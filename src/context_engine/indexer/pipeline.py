@@ -449,7 +449,10 @@ async def _run_indexing_locked(
         # here so we don't write an index with empty vectors. Crucially, the
         # replacement deletes (files_to_replace) have NOT happened yet, so a
         # download or model failure leaves the previous index intact.
-        cache = EmbeddingCache(storage_base / "embedding_cache.db")
+        cache = EmbeddingCache(
+            storage_base / "embedding_cache.db",
+            model_name=config.embedding_model,
+        )
         try:
             embedder = Embedder(model_name=config.embedding_model, cache=cache)
             try:
@@ -472,7 +475,7 @@ async def _run_indexing_locked(
             if full and not target_path:
                 try:
                     live_hashes = {
-                        EmbeddingCache.content_hash(c.content) for c in all_chunks
+                        cache.content_hash(c.content) for c in all_chunks
                     }
                     pruned = cache.prune_orphans(live_hashes)
                     if pruned and log_fn:

@@ -446,9 +446,11 @@ def _ensure_claude_md(project_dir: Path) -> None:
     instructions forever — Claude never learned to call record_decision /
     session_recall and the cross-session memory loop stayed broken.
     """
+    from context_engine.utils import atomic_write_text
+
     claude_md = project_dir / "CLAUDE.md"
     if not claude_md.exists():
-        claude_md.write_text(_CCE_CLAUDE_MD_BLOCK)
+        atomic_write_text(claude_md, _CCE_CLAUDE_MD_BLOCK)
         _ok("CLAUDE.md created with CCE instructions")
         return
 
@@ -464,13 +466,13 @@ def _ensure_claude_md(project_dir: Path) -> None:
     old_block = _extract_existing_cce_block(existing)
     if old_block is not None:
         new_content = existing.replace(old_block, _CCE_CLAUDE_MD_BLOCK.rstrip(), 1)
-        claude_md.write_text(new_content)
+        atomic_write_text(claude_md, new_content)
         _ok("CLAUDE.md upgraded to current CCE instructions")
         return
 
     # No CCE block detected — append.
     new_content = existing.rstrip() + "\n\n" + _CCE_CLAUDE_MD_BLOCK
-    claude_md.write_text(new_content)
+    atomic_write_text(claude_md, new_content)
     _ok("CLAUDE.md updated with CCE instructions")
 
 

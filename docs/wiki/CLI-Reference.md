@@ -18,7 +18,7 @@ All commands use colorful, structured output with line-by-line animation on TTY:
 Running `cce` with no subcommand shows a welcome banner with project status at a glance:
 
 ```
-╭─────────────────────────── Code Context Engine v0.2.9 ────────────────────────────╮
+╭─────────────────────────── Code Context Engine v0.3.1 ────────────────────────────╮
 │                                                                                     │
 │                                     ⬡  C C E  ⬡                                     │
 │                                                                                     │
@@ -218,7 +218,7 @@ cce status -v
 **Oneline output example** (shown at the top of each Claude Code session):
 
 ```
-CCE v0.2.5 · my-project · 1247 chunks indexed · 68% saved over 42 queries
+CCE v0.3.1 · my-project · 1247 chunks indexed · 68% saved over 42 queries
 USE context_search MCP tool for all code questions. Do NOT use Read/Grep to explore code.
 ```
 

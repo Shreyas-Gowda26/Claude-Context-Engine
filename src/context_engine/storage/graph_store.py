@@ -157,25 +157,27 @@ class GraphStore:
     def _sync_delete_by_files(self, file_paths: list[str]) -> None:
         if not file_paths:
             return
+        from context_engine.utils import batched_params
+
         with self._lock:
             cur = self._conn.cursor()
-            file_placeholders = ",".join("?" * len(file_paths))
-            cur.execute(
-                f"SELECT id FROM nodes WHERE file_path IN ({file_placeholders})",
-                file_paths,
-            )
-            node_ids = [row[0] for row in cur.fetchall()]
-            if node_ids:
-                id_placeholders = ",".join("?" * len(node_ids))
+            # Collect node IDs in batches to respect SQLite param limits.
+            node_ids: list[str] = []
+            for batch in batched_params(file_paths):
+                ph = ",".join("?" * len(batch))
                 cur.execute(
-                    f"DELETE FROM edges WHERE source_id IN ({id_placeholders}) "
-                    f"OR target_id IN ({id_placeholders})",
-                    node_ids + node_ids,
+                    f"SELECT id FROM nodes WHERE file_path IN ({ph})", batch
                 )
+                node_ids.extend(row[0] for row in cur.fetchall())
+            # Delete edges and nodes in batches.
+            for batch in batched_params(node_ids):
+                ph = ",".join("?" * len(batch))
                 cur.execute(
-                    f"DELETE FROM nodes WHERE id IN ({id_placeholders})",
-                    node_ids,
+                    f"DELETE FROM edges WHERE source_id IN ({ph}) "
+                    f"OR target_id IN ({ph})",
+                    batch + batch,
                 )
+                cur.execute(f"DELETE FROM nodes WHERE id IN ({ph})", batch)
             self._conn.commit()
 
     # ------------------------------------------------------------------

@@ -79,12 +79,15 @@ class FTSStore:
     def _delete_files_sync(self, file_paths: list[str]) -> None:
         if not file_paths:
             return
-        placeholders = ",".join("?" * len(file_paths))
+        from context_engine.utils import batched_params
+
         with self._lock:
-            self._conn.execute(
-                f"DELETE FROM chunks_fts WHERE file_path IN ({placeholders})",
-                file_paths,
-            )
+            for batch in batched_params(file_paths):
+                placeholders = ",".join("?" * len(batch))
+                self._conn.execute(
+                    f"DELETE FROM chunks_fts WHERE file_path IN ({placeholders})",
+                    batch,
+                )
             self._conn.commit()
 
     async def ingest(self, chunks: list[Chunk]) -> None:

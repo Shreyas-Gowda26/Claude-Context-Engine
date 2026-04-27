@@ -239,26 +239,26 @@ class VectorStore:
         the indexing loop on small SQLite roundtrips."""
         if not file_paths:
             return
+        from context_engine.utils import batched_params
+
         with self._lock:
-            placeholders = ",".join("?" * len(file_paths))
-            if self._dim is not None:
+            for batch in batched_params(file_paths):
+                placeholders = ",".join("?" * len(batch))
+                if self._dim is not None:
+                    self._conn.execute(
+                        f"DELETE FROM chunks_vec "
+                        f"WHERE rowid IN (SELECT rowid FROM chunks WHERE file_path IN ({placeholders}))",
+                        batch,
+                    )
                 self._conn.execute(
-                    f"DELETE FROM chunks_vec "
-                    f"WHERE rowid IN (SELECT rowid FROM chunks WHERE file_path IN ({placeholders}))",
-                    file_paths,
+                    f"DELETE FROM chunk_compressions "
+                    f"WHERE chunk_id IN (SELECT id FROM chunks WHERE file_path IN ({placeholders}))",
+                    batch,
                 )
-            # Drop cached summaries for any chunks belonging to these files
-            # before the chunks themselves go away — otherwise stale summaries
-            # would survive a re-index.
-            self._conn.execute(
-                f"DELETE FROM chunk_compressions "
-                f"WHERE chunk_id IN (SELECT id FROM chunks WHERE file_path IN ({placeholders}))",
-                file_paths,
-            )
-            self._conn.execute(
-                f"DELETE FROM chunks WHERE file_path IN ({placeholders})",
-                file_paths,
-            )
+                self._conn.execute(
+                    f"DELETE FROM chunks WHERE file_path IN ({placeholders})",
+                    batch,
+                )
             self._conn.commit()
 
     def get_cached_compression(self, chunk_id: str, level: str) -> str | None:

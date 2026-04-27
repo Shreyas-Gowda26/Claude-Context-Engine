@@ -262,8 +262,10 @@ class SessionCapture:
         # Active in-memory sessions first (may not yet be flushed to disk).
         # Snapshot under the lock so a concurrent record_decision can't mutate
         # the list while we're iterating it.
+        import copy
+
         with self._lock:
-            active_snapshot = [dict(s) for s in self._active.values()]
+            active_snapshot = copy.deepcopy(list(self._active.values()))
         for session in active_snapshot:
             for d in session.get("decisions", []):
                 ts = d.get("timestamp", 0.0)

@@ -37,7 +37,7 @@ Over 30 queries in a typical project, that difference compounds into real API co
 
 **Install:**
 ```bash
-uv tool install claude-context-engine
+uv tool install code-context-engine
 ```
 
 **Index your project:**

@@ -32,7 +32,7 @@ def _make_chunk(content: str, chunk_id: str = "c1") -> Chunk:
 
 
 def test_put_and_get(cache):
-    h = EmbeddingCache.content_hash("hello world")
+    h = cache.content_hash("hello world")
     emb = [0.1, 0.2, 0.3]
     cache.put(h, emb)
     result = cache.get(h)
@@ -45,7 +45,7 @@ def test_get_miss_returns_none(cache):
 
 def test_put_batch_and_get_batch(cache):
     items = [
-        (EmbeddingCache.content_hash(f"text_{i}"), [float(i)] * 3)
+        (cache.content_hash(f"text_{i}"), [float(i)] * 3)
         for i in range(5)
     ]
     cache.put_batch(items)
@@ -57,16 +57,16 @@ def test_put_batch_and_get_batch(cache):
 
 
 def test_get_batch_partial(cache):
-    h1 = EmbeddingCache.content_hash("exists")
+    h1 = cache.content_hash("exists")
     cache.put(h1, [1.0, 2.0])
-    h2 = EmbeddingCache.content_hash("missing")
+    h2 = cache.content_hash("missing")
     results = cache.get_batch([h1, h2])
     assert h1 in results
     assert h2 not in results
 
 
 def test_hit_miss_counters(cache):
-    h = EmbeddingCache.content_hash("tracked")
+    h = cache.content_hash("tracked")
     cache.put(h, [1.0])
     cache.get(h)            # hit
     cache.get("missing")    # miss
@@ -77,19 +77,19 @@ def test_hit_miss_counters(cache):
 
 def test_size(cache):
     assert cache.size() == 0
-    cache.put(EmbeddingCache.content_hash("a"), [1.0])
-    cache.put(EmbeddingCache.content_hash("b"), [2.0])
+    cache.put(cache.content_hash("a"), [1.0])
+    cache.put(cache.content_hash("b"), [2.0])
     assert cache.size() == 2
 
 
-def test_content_hash_deterministic_and_distinct():
-    assert EmbeddingCache.content_hash("same") == EmbeddingCache.content_hash("same")
-    assert EmbeddingCache.content_hash("a") != EmbeddingCache.content_hash("b")
+def test_content_hash_deterministic_and_distinct(cache):
+    assert cache.content_hash("same") == cache.content_hash("same")
+    assert cache.content_hash("a") != cache.content_hash("b")
 
 
 def test_prune_orphans_drops_stale_entries(cache):
-    h_keep = EmbeddingCache.content_hash("kept")
-    h_drop = EmbeddingCache.content_hash("orphan")
+    h_keep = cache.content_hash("kept")
+    h_drop = cache.content_hash("orphan")
     cache.put(h_keep, [1.0, 2.0])
     cache.put(h_drop, [3.0, 4.0])
 
@@ -102,7 +102,7 @@ def test_prune_orphans_drops_stale_entries(cache):
 def test_prune_orphans_refuses_empty_set(cache):
     """Empty `known_hashes` is almost always a caller bug — refuse to wipe
     everything implicitly."""
-    cache.put(EmbeddingCache.content_hash("safe"), [1.0])
+    cache.put(cache.content_hash("safe"), [1.0])
     assert cache.prune_orphans(set()) == 0
     assert cache.size() == 1
 

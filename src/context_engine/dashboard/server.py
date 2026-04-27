@@ -235,12 +235,16 @@ def create_app(config: Config, project_dir: Path) -> FastAPI:
     @app.post("/api/clear")
     async def clear_index() -> dict:
         await backend.clear()
-        (storage_base / "manifest.json").write_text(
-            json.dumps({"__schema_version": 2, "files": {}, "last_git_sha": None})
+        from context_engine.utils import atomic_write_text
+
+        atomic_write_text(
+            storage_base / "manifest.json",
+            json.dumps({"__schema_version": 2, "files": {}, "last_git_sha": None}),
         )
-        (storage_base / "stats.json").write_text(json.dumps(
-            {"queries": 0, "raw_tokens": 0, "served_tokens": 0, "full_file_tokens": 0}
-        ))
+        atomic_write_text(
+            storage_base / "stats.json",
+            json.dumps({"queries": 0, "raw_tokens": 0, "served_tokens": 0, "full_file_tokens": 0}),
+        )
         return {"ok": True}
 
     @app.delete("/api/files/{file_path:path}", response_model=None)
@@ -261,7 +265,9 @@ def create_app(config: Config, project_dir: Path) -> FastAPI:
             payload = raw
         else:
             payload = {"__schema_version": 2, "files": files, "last_git_sha": None}
-        (storage_base / "manifest.json").write_text(json.dumps(payload))
+        from context_engine.utils import atomic_write_text
+
+        atomic_write_text(storage_base / "manifest.json", json.dumps(payload))
         return {"ok": True, "deleted": file_path}
 
     @app.post("/api/compression")

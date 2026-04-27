@@ -4,6 +4,16 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from typing import Iterator, Sequence
+
+# SQLite SQLITE_MAX_VARIABLE_NUMBER defaults to 999; stay safely under.
+_SQL_PARAM_BATCH = 500
+
+
+def batched_params(items: Sequence, size: int = _SQL_PARAM_BATCH) -> Iterator[list]:
+    """Yield successive chunks of *items* for safe SQLite IN-clause usage."""
+    for i in range(0, len(items), size):
+        yield list(items[i : i + size])
 
 
 def atomic_write_text(path: Path, data: str) -> None:
@@ -23,8 +33,10 @@ def atomic_write_text(path: Path, data: str) -> None:
         prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
     )
     try:
-        with os.fdopen(fd, "w") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
         os.replace(tmp_name, path)
     except Exception:
         # Best-effort cleanup if anything went wrong before the rename.

@@ -59,7 +59,7 @@ class Embedder:
 
         # Hash + batched lookup: one SQL roundtrip for the whole batch
         # instead of N roundtrips through the per-chunk get() path.
-        hashes = [EmbeddingCache.content_hash(c.content) for c in chunks]
+        hashes = [self._cache.content_hash(c.content) for c in chunks]
         cached = self._cache.get_batch(hashes)
 
         miss_indices: list[int] = []
