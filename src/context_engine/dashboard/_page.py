@@ -823,6 +823,26 @@ var allFiles = [];
 var currentLevel = 'standard';
 var PAGES = ['overview','files','sessions','savings'];
 
+// Pick up an optional bearer token from the URL (?token=...). The server
+// only enforces it on mutating endpoints when CCE_DASHBOARD_TOKEN is set;
+// when it's not set the token query param is harmless. Monkey-patches
+// fetch() to attach the header on every request — sending it on GETs as
+// well is harmless and keeps the rest of the code untouched.
+(function() {
+  var token = new URLSearchParams(window.location.search).get('token');
+  if (!token) return;
+  var origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    init = init || {};
+    var headers = new Headers(init.headers || (input && input.headers) || {});
+    if (!headers.has('Authorization')) {
+      headers.set('Authorization', 'Bearer ' + token);
+    }
+    init.headers = headers;
+    return origFetch(input, init);
+  };
+})();
+
 // ── Chart helpers ────────────────────────────────
 
 /**

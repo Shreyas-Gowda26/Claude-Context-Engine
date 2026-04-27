@@ -1,6 +1,8 @@
 """MCP server exposing context engine tools to Claude Code."""
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 
 from mcp.server import Server
@@ -37,6 +39,32 @@ _SESSION_RECALL_MIN_SIM = 0.35
 
 def _count_tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
+
+
+def _atomic_write_text(path: Path, data: str) -> None:
+    """Write `data` to `path` via a tempfile + os.replace.
+
+    A plain `path.write_text(data)` truncates the target before writing, so a
+    crash mid-write leaves a zero-byte or partial file. The next load reads
+    that as `{}` and silently loses everything. The tempfile-then-rename
+    pattern keeps the existing file intact until the new one is fully on
+    disk; the rename is atomic on POSIX.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(data)
+        os.replace(tmp_name, path)
+    except Exception:
+        # Best-effort cleanup if anything went wrong before the rename.
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def _cosine_sim(a, b) -> float:
@@ -148,6 +176,20 @@ class ContextEngineMCP:
             sessions_dir=str(self._storage_base / "sessions")
         )
         self._session_id = self._session_capture.start_session(project_name)
+        # Cheap maintenance on start: if the project has accumulated more than
+        # _PRUNE_THRESHOLD session files, consolidate the oldest decisions
+        # into decisions_log.json and remove the source files. No-op when
+        # under threshold (the common case).
+        try:
+            summary = self._session_capture.prune_old_sessions()
+            if summary.get("pruned"):
+                log.info(
+                    "Pruned %d old session files (%d decisions archived)",
+                    summary["pruned"],
+                    summary.get("decisions_appended", 0),
+                )
+        except Exception as exc:
+            log.debug("Session prune skipped: %s", exc)
 
         # Bootstrap builder — used by the `context-engine-init` prompt handler.
         self._bootstrap = BootstrapBuilder(max_tokens=config.bootstrap_max_tokens)
@@ -204,8 +246,7 @@ class ContextEngineMCP:
 
     def _save_stats(self) -> None:
         try:
-            data = json.dumps(self._stats)
-            self._stats_path.write_text(data)
+            _atomic_write_text(self._stats_path, json.dumps(self._stats))
         except Exception as exc:
             self._append_error_log(f"_save_stats failed: {exc}")
 
@@ -248,7 +289,7 @@ class ContextEngineMCP:
     def _save_state(self) -> None:
         try:
             state = {"output_level": self._output_level}
-            self._state_path.write_text(json.dumps(state))
+            _atomic_write_text(self._state_path, json.dumps(state))
         except OSError:
             pass
 
@@ -467,6 +508,14 @@ class ContextEngineMCP:
 
         full_file_tokens = self._estimate_full_file_tokens(seen_files)
 
+        # Auto-capture: every file that surfaced as a relevant result counts as
+        # "touched" — we can't tell from here whether Claude will act on it,
+        # but a file appearing in a search result is a stronger signal than
+        # silence. Persisted into the session log alongside explicit
+        # record_code_area calls.
+        self._session_capture.touch_files(self._session_id, seen_files)
+        self._persist_current_session()
+
         body = _format_results_with_overflow(inline_chunks, overflow_chunks)
         if get_output_rules(self._output_level):
             body += (
@@ -503,6 +552,10 @@ class ContextEngineMCP:
             return [TextContent(type="text", text="Chunk not found.")]
         tokens = _count_tokens(chunk.content)
         self._record(tokens, tokens)
+        # Opening a chunk is a much stronger "I care about this file" signal
+        # than just seeing it in a result list — bump the touch counter.
+        self._session_capture.touch_files(self._session_id, [chunk.file_path])
+        self._persist_current_session()
         return [
             TextContent(
                 type="text",
@@ -666,13 +719,12 @@ class ContextEngineMCP:
         each record to avoid data loss.
         """
         sessions_dir = Path(self._session_capture._sessions_dir)  # noqa: SLF001
-        session = self._session_capture._active.get(self._session_id)  # noqa: SLF001
+        session = self._session_capture.get_session_snapshot(self._session_id)
         if not session:
             return
         try:
-            sessions_dir.mkdir(parents=True, exist_ok=True)
             file_path = sessions_dir / f"{self._session_id}.json"
-            file_path.write_text(json.dumps(session, indent=2))
+            _atomic_write_text(file_path, json.dumps(session, indent=2))
         except OSError:
             log.warning("Failed to persist session %s", self._session_id)
 
@@ -689,7 +741,7 @@ class ContextEngineMCP:
             return []
 
         # Collect candidate entries from current + recent sessions.
-        current = self._session_capture._active.get(self._session_id)  # noqa: SLF001
+        current = self._session_capture.get_session_snapshot(self._session_id)
         sessions: list[dict] = []
         if current:
             sessions.append(current)
@@ -812,8 +864,27 @@ class ContextEngineMCP:
             recent_commits = get_recent_commits(self._project_dir)
             working_state = get_working_state(self._project_dir)
 
-            # Active decisions from past sessions
-            active_decisions = self._search_sessions("decision")[:10]
+            # Surface the files that got the most attention in the most-recent
+            # past session. Auto-captured every time a file appears in a
+            # context_search result or is opened via expand_chunk — gives the
+            # next session a "where you left off" hint without requiring
+            # Claude to have explicitly called record_code_area.
+            recent_sessions = self._session_capture.load_recent_sessions(limit=1)
+            if recent_sessions:
+                touched = recent_sessions[0].get("touched_files") or {}
+                if touched:
+                    top = sorted(touched.items(), key=lambda kv: kv[1], reverse=True)[:5]
+                    working_state = list(working_state or [])
+                    working_state.append(
+                        "Recently touched files (prior session): "
+                        + ", ".join(f"{fp} ({n})" for fp, n in top)
+                    )
+
+            # Active decisions from past sessions — surface the most recent
+            # entries unconditionally rather than substring-matching on the
+            # word "decision" (which usually misses since recorded decisions
+            # rarely contain that literal token).
+            active_decisions = self._session_capture.get_recent_decisions(limit=10)
 
             # Get total indexed chunk count for the status line.
             try:

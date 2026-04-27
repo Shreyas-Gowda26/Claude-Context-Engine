@@ -1,59 +1,297 @@
 """Session history capture — records decisions, code areas, and Q&A for future recall."""
 import json
+import logging
+import os
+import tempfile
+import threading
 import time
 import uuid
 from pathlib import Path
 
+log = logging.getLogger(__name__)
+
+# Once a project accumulates more session JSONs than this, the oldest are
+# consolidated into decisions_log.json (decisions only — the durable signal)
+# and the source files are removed. The most recent _PRUNE_KEEP files are
+# always preserved verbatim.
+_PRUNE_THRESHOLD = 100
+_PRUNE_KEEP = 50
+_DECISIONS_LOG_NAME = "decisions_log.json"
+
+
+def _atomic_write_text(path: Path, data: str) -> None:
+    """Atomic write via tempfile + os.replace. See mcp_server._atomic_write_text
+    for the full rationale; duplicated here to avoid an import cycle."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(data)
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
 class SessionCapture:
+    """Thread-safe session log. All `_active` access goes through `_lock` so
+    concurrent MCP tool calls (e.g. record_decision while end_session flushes)
+    can't interleave a half-mutation."""
+
     def __init__(self, sessions_dir: str) -> None:
         self._sessions_dir = sessions_dir
         Path(sessions_dir).mkdir(parents=True, exist_ok=True)
         self._active: dict[str, dict] = {}
+        self._lock = threading.RLock()
 
     def start_session(self, project_name: str) -> str:
         session_id = uuid.uuid4().hex[:12]
-        self._active[session_id] = {
-            "id": session_id, "project": project_name, "started_at": time.time(),
-            "decisions": [], "code_areas": [], "questions": [],
-        }
+        with self._lock:
+            self._active[session_id] = {
+                "id": session_id, "project": project_name, "started_at": time.time(),
+                "decisions": [], "code_areas": [], "questions": [],
+                # touched_files: per-file count of how many times the chunk was
+                # surfaced or opened during the session. Auto-captured by the
+                # MCP server so even sessions where Claude never explicitly
+                # calls `record_code_area` leave a useful breadcrumb.
+                "touched_files": {},
+            }
         return session_id
 
     def record_decision(self, session_id, decision, reason):
-        session = self._active.get(session_id)
-        if session:
-            session["decisions"].append({"decision": decision, "reason": reason, "timestamp": time.time()})
+        with self._lock:
+            session = self._active.get(session_id)
+            if session:
+                session["decisions"].append({"decision": decision, "reason": reason, "timestamp": time.time()})
 
     def record_code_area(self, session_id, file_path, description):
-        session = self._active.get(session_id)
-        if session:
-            session["code_areas"].append({"file_path": file_path, "description": description, "timestamp": time.time()})
+        with self._lock:
+            session = self._active.get(session_id)
+            if session:
+                session["code_areas"].append({"file_path": file_path, "description": description, "timestamp": time.time()})
+
+    def touch_files(self, session_id, file_paths) -> None:
+        """Bump the touched-files counter for each path. Auto-called by the
+        MCP server whenever a result references a file or a chunk is opened.
+        Cheap (in-memory dict update); persisted on the next flush."""
+        if not file_paths:
+            return
+        with self._lock:
+            session = self._active.get(session_id)
+            if not session:
+                return
+            counts = session.setdefault("touched_files", {})
+            for fp in file_paths:
+                if not fp or fp.startswith("git:"):
+                    continue
+                counts[fp] = counts.get(fp, 0) + 1
+
+    def get_top_touched_files(self, session_id, limit: int = 10) -> list[tuple[str, int]]:
+        """Return the most-touched file paths in this session as (path, count)."""
+        with self._lock:
+            session = self._active.get(session_id)
+            if not session:
+                return []
+            counts = dict(session.get("touched_files", {}))
+        return sorted(counts.items(), key=lambda pair: pair[1], reverse=True)[:limit]
 
     def record_question(self, session_id, question, answer):
-        session = self._active.get(session_id)
-        if session:
-            session["questions"].append({"question": question, "answer": answer, "timestamp": time.time()})
+        with self._lock:
+            session = self._active.get(session_id)
+            if session:
+                session["questions"].append({"question": question, "answer": answer, "timestamp": time.time()})
+
+    def get_session_snapshot(self, session_id) -> dict | None:
+        """Return a shallow copy of the active session for safe inspection.
+        Returns None if the session_id isn't in _active."""
+        with self._lock:
+            session = self._active.get(session_id)
+            if session is None:
+                return None
+            return dict(session)
 
     def get_decisions(self, session_id):
-        session = self._active.get(session_id)
-        return session["decisions"] if session else []
+        with self._lock:
+            session = self._active.get(session_id)
+            # Defensive copy so the caller can iterate without holding the lock.
+            return list(session["decisions"]) if session else []
 
     def get_code_areas(self, session_id):
-        session = self._active.get(session_id)
-        return session["code_areas"] if session else []
+        with self._lock:
+            session = self._active.get(session_id)
+            return list(session["code_areas"]) if session else []
 
     def end_session(self, session_id):
-        session = self._active.pop(session_id, None)
+        with self._lock:
+            session = self._active.pop(session_id, None)
         if session:
             session["ended_at"] = time.time()
             file_path = Path(self._sessions_dir) / f"{session_id}.json"
-            with open(file_path, "w") as f:
-                json.dump(session, f, indent=2)
+            _atomic_write_text(file_path, json.dumps(session, indent=2))
 
     def load_recent_sessions(self, limit=5):
         sessions_path = Path(self._sessions_dir)
-        files = sorted(sessions_path.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        files = [
+            f for f in sessions_path.glob("*.json")
+            # decisions_log.json is the consolidated archive, not a session.
+            if f.name != _DECISIONS_LOG_NAME
+        ]
+        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
         sessions = []
         for f in files[:limit]:
-            with open(f) as fp:
-                sessions.append(json.load(fp))
+            try:
+                with open(f) as fp:
+                    sessions.append(json.load(fp))
+            except (json.JSONDecodeError, OSError):
+                # Skip corrupt session files; don't blow up recall.
+                continue
         return sessions
+
+    def prune_old_sessions(
+        self,
+        threshold: int = _PRUNE_THRESHOLD,
+        keep: int = _PRUNE_KEEP,
+    ) -> dict:
+        """Consolidate old session JSONs into decisions_log.json + delete them.
+
+        Triggered automatically at server start when there are more than
+        `threshold` session files; can also be run from the CLI as
+        `cce sessions prune`. Returns a summary dict so the caller can report.
+
+        Only the *decisions* (and their reasons + timestamps + originating
+        session id) survive consolidation. code_areas and questions in old
+        sessions are dropped — they were heuristic auto-captures and the
+        signal-to-noise drops fast as they age.
+        """
+        sessions_path = Path(self._sessions_dir)
+        files = sorted(
+            sessions_path.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if len(files) <= threshold:
+            return {"pruned": 0, "kept": len(files), "reason": "below threshold"}
+
+        keep_files = files[:keep]
+        old_files = files[keep:]
+
+        log_path = sessions_path / _DECISIONS_LOG_NAME
+        existing: list[dict] = []
+        if log_path.exists():
+            try:
+                existing = json.loads(log_path.read_text())
+                if not isinstance(existing, list):
+                    existing = []
+            except (json.JSONDecodeError, OSError):
+                existing = []
+
+        appended = 0
+        for f in old_files:
+            if f == log_path:
+                continue
+            try:
+                data = json.loads(f.read_text())
+            except (json.JSONDecodeError, OSError) as exc:
+                log.warning("Skipping unreadable session file %s: %s", f, exc)
+                continue
+            for d in data.get("decisions", []):
+                existing.append({
+                    "decision": d.get("decision", ""),
+                    "reason": d.get("reason", ""),
+                    "timestamp": d.get("timestamp", 0.0),
+                    "session_id": data.get("id", ""),
+                })
+                appended += 1
+
+        try:
+            _atomic_write_text(log_path, json.dumps(existing, indent=2))
+        except OSError as exc:
+            log.warning("Failed to write decisions_log: %s", exc)
+            return {"pruned": 0, "kept": len(files), "reason": f"write failed: {exc}"}
+
+        deleted = 0
+        for f in old_files:
+            if f == log_path:
+                continue
+            try:
+                f.unlink()
+                deleted += 1
+            except OSError as exc:
+                log.warning("Failed to remove old session %s: %s", f, exc)
+
+        return {
+            "pruned": deleted,
+            "kept": len(keep_files),
+            "decisions_appended": appended,
+            "decisions_log": str(log_path),
+        }
+
+    def _load_consolidated_decisions(self) -> list[dict]:
+        """Read decisions_log.json (the consolidated archive). Returns []
+        when absent or unreadable — never raises."""
+        log_path = Path(self._sessions_dir) / _DECISIONS_LOG_NAME
+        if not log_path.exists():
+            return []
+        try:
+            data = json.loads(log_path.read_text())
+            return data if isinstance(data, list) else []
+        except (json.JSONDecodeError, OSError):
+            return []
+
+    def get_recent_decisions(self, limit: int = 10, session_limit: int = 50) -> list[str]:
+        """Return the most-recent decision strings across recent sessions.
+
+        Used by the bootstrap prompt to inject prior decisions at session
+        start without relying on a topic-grep that often returns nothing.
+        Includes any decisions in the currently active in-memory session.
+        Order: newest first by recorded timestamp.
+        """
+        decisions: list[tuple[float, str]] = []
+
+        # Active in-memory sessions first (may not yet be flushed to disk).
+        # Snapshot under the lock so a concurrent record_decision can't mutate
+        # the list while we're iterating it.
+        with self._lock:
+            active_snapshot = [dict(s) for s in self._active.values()]
+        for session in active_snapshot:
+            for d in session.get("decisions", []):
+                ts = d.get("timestamp", 0.0)
+                text = (
+                    f"[decision] {d.get('decision', '')} — {d.get('reason', '')}"
+                )
+                decisions.append((ts, text))
+
+        for session in self.load_recent_sessions(limit=session_limit):
+            for d in session.get("decisions", []):
+                ts = d.get("timestamp", 0.0)
+                text = (
+                    f"[decision] {d.get('decision', '')} — {d.get('reason', '')}"
+                )
+                decisions.append((ts, text))
+
+        # Pull from the consolidated archive as well — `prune_old_sessions`
+        # writes decisions there before deleting the source files, so without
+        # this step a recall on a long-lived project would forget anything
+        # past the most-recent session_limit files.
+        for d in self._load_consolidated_decisions():
+            ts = d.get("timestamp", 0.0)
+            text = (
+                f"[decision] {d.get('decision', '')} — {d.get('reason', '')}"
+            )
+            decisions.append((ts, text))
+
+        # Dedup keeping the newest occurrence of each text.
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for _, text in sorted(decisions, key=lambda pair: pair[0], reverse=True):
+            if text in seen:
+                continue
+            seen.add(text)
+            ordered.append(text)
+            if len(ordered) >= limit:
+                break
+        return ordered

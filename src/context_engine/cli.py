@@ -62,31 +62,67 @@ _CCE_CLAUDE_MD_MARKER = "## Context Engine (CCE)"
 _CCE_CLAUDE_MD_BLOCK = """\
 ## Context Engine (CCE)
 
-This project uses Claude Context Engine for intelligent code retrieval.
+This project uses Claude Context Engine for intelligent code retrieval and
+cross-session memory.
 
-**IMPORTANT: You MUST use `context_search` instead of reading files directly**
-when exploring the codebase, answering questions about code, or understanding
-how things work. This is a hard requirement, not a suggestion. The `context_search`
-MCP tool routes queries through the semantic search engine, which:
-- Returns only the most relevant code chunks (not entire files)
-- Tracks token savings automatically
-- Provides confidence scores for each result
+### Searching the codebase
 
-**When to use `context_search`:**
+**You MUST use `context_search` instead of reading files directly** when
+exploring the codebase, answering questions about code, or understanding how
+things work. This is a hard requirement, not a suggestion. `context_search`
+returns the most relevant code chunks with confidence scores instead of whole
+files, and tracks token savings automatically.
+
+When to use `context_search`:
 - Answering questions about the codebase ("how does X work?", "where is Y?")
-- Exploring code structure or architecture
+- Exploring structure or architecture
 - Finding related code, functions, or patterns
-- Any time you would otherwise read a file to understand it
+- Any time you would otherwise read a file just to understand it
 
-**When to use `Read` instead:**
+When to use `Read` instead:
 - You need to edit a specific file (read before editing)
 - You need the exact, complete content of a known file path
 
-Other useful MCP tools:
+Other search tools:
 - `expand_chunk` — get full source for a compressed result
 - `related_context` — find what calls/imports a function
-- `session_recall` — retrieve decisions from past sessions
-- `record_decision` — persist an important decision for future sessions
+
+### Cross-session memory — use it actively
+
+This project has persistent memory across Claude Code sessions. **You must
+use it both ways: recall before answering, record after deciding.** Memory
+that is not recorded is lost; memory that is not recalled does nothing.
+
+**Before answering a non-trivial question, call `session_recall`.**
+Especially when:
+- The question touches architecture, design, or naming choices
+- The user asks "what / why / how did we ..."
+- You are about to recommend an approach the team may have already chosen
+  or already rejected
+
+Pass a topic phrase, not a single word — e.g. `session_recall("auth flow")`,
+not `session_recall("auth")`. Recall is vector-similarity-based, so paraphrases
+match. If recall returns relevant entries, lead with them ("Per a prior
+decision: ...") instead of re-deriving the answer.
+
+**After making a non-obvious decision, call `record_decision`.** Especially:
+- Choosing one library / pattern / approach over another
+- Resolving an ambiguity in the spec or requirements
+- Establishing a convention the project should follow going forward
+- Anything you would not want to re-litigate next session
+
+Format: `record_decision(decision="...", reason="...")`. Keep both fields
+short and specific — they are surfaced verbatim at the start of future
+sessions.
+
+**After meaningful work in a file, call `record_code_area`.** Especially when:
+- You added or substantially modified a function/class
+- You traced through a non-obvious flow and want future-you to find it fast
+
+Format: `record_code_area(file_path="...", description="...")`.
+
+Skip recording for trivial reads, formatting changes, or one-off lookups —
+the goal is durable signal, not an event log.
 
 ## Output Style
 
@@ -1432,6 +1468,7 @@ def serve(ctx: click.Context, as_http: bool, host: str, port: int, project_dir: 
 @click.pass_context
 def dashboard(ctx: click.Context, port: int, no_browser: bool) -> None:
     """Start the web dashboard for index inspection."""
+    import os as _os
     import webbrowser
     import uvicorn
     from context_engine.dashboard.server import create_app
@@ -1442,9 +1479,18 @@ def dashboard(ctx: click.Context, port: int, no_browser: bool) -> None:
     if port == 0:
         port = _find_free_port()
 
+    # When CCE_DASHBOARD_TOKEN is set, append it to the URL so the dashboard
+    # JS picks it up and includes it on mutating requests. Without the token
+    # in the URL the page itself loads fine but Reindex / Clear / etc. would
+    # 401 — most users would assume the dashboard was broken, so we surface
+    # the URL with the token already attached.
+    token = (_os.environ.get("CCE_DASHBOARD_TOKEN") or "").strip()
     from context_engine.cli_style import header, value, dim
-    url = f"http://localhost:{port}"
+    base_url = f"http://localhost:{port}"
+    url = f"{base_url}?token={token}" if token else base_url
     click.echo(f"  {header('CCE Dashboard')} at {value(url)}")
+    if token:
+        click.echo(f"  {dim('Auth: bearer token required for write actions.')}")
     click.echo(f"  {dim('Press Ctrl+C to stop.')}")
 
     if not no_browser:
@@ -1526,6 +1572,61 @@ def services_stop(service: str) -> None:
             ok, msg = stop_dashboard()
         prefix = click.style("✓", fg="green") if ok else click.style("·", fg="yellow")
         click.echo(f"  {prefix} {msg}")
+
+
+# ── sessions command group ────────────────────────────────────────────────────
+
+@main.group(invoke_without_command=True)
+@click.pass_context
+def sessions(ctx: click.Context) -> None:
+    """Inspect and prune cross-session memory."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@sessions.command(name="prune")
+@click.option(
+    "--threshold",
+    default=100,
+    show_default=True,
+    type=int,
+    help="Consolidate when more than this many session files exist",
+)
+@click.option(
+    "--keep",
+    default=50,
+    show_default=True,
+    type=int,
+    help="Number of most-recent sessions to keep verbatim",
+)
+@click.pass_context
+def sessions_prune(ctx: click.Context, threshold: int, keep: int) -> None:
+    """Consolidate old session files into a single decisions log.
+
+    Decisions from old sessions are appended to decisions_log.json and the
+    source files are removed; the most-recent sessions (--keep) are kept
+    verbatim. Decisions remain searchable via session_recall after pruning.
+    """
+    from context_engine.integration.session_capture import SessionCapture
+
+    config = ctx.obj["config"]
+    project_name = Path.cwd().name
+    sessions_dir = Path(config.storage_path) / project_name / "sessions"
+    if not sessions_dir.exists():
+        click.echo(f"  {DOT} No sessions directory at {sessions_dir}")
+        return
+    capture = SessionCapture(sessions_dir=str(sessions_dir))
+    summary = capture.prune_old_sessions(threshold=threshold, keep=keep)
+    pruned = summary.get("pruned", 0)
+    appended = summary.get("decisions_appended", 0)
+    if pruned == 0:
+        reason = summary.get("reason", "")
+        click.echo(f"  {DOT} Nothing to prune ({reason}).")
+    else:
+        click.echo(
+            f"  {CHECK} Pruned {pruned} session file(s); "
+            f"archived {appended} decision(s) to decisions_log.json."
+        )
 
 
 async def _run_index(

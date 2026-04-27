@@ -215,7 +215,11 @@ class VectorStore:
                         (query_bytes, top_k),
                     ).fetchall()
             except Exception as exc:
-                log.error("Vector search failed: %s", exc)
+                log.warning(
+                    "vector_store.search failed (returning no results — "
+                    "this may indicate index corruption): %s",
+                    exc,
+                )
                 return []
         return [self._row_to_chunk(row[:7], distance=row[7]) for row in rows]
 
@@ -272,7 +276,11 @@ class VectorStore:
             try:
                 row = self._conn.execute("SELECT COUNT(*) FROM chunks").fetchone()
                 return row[0] if row else 0
-            except Exception:
+            except Exception as exc:
+                # Log so users see "the index is broken" instead of "search
+                # returns nothing"; bare-except-and-zero made schema corruption
+                # indistinguishable from an empty index.
+                log.warning("vector_store.count failed: %s", exc)
                 return 0
 
     def file_chunk_counts(self) -> dict[str, int]:
@@ -282,7 +290,8 @@ class VectorStore:
                     "SELECT file_path, COUNT(*) FROM chunks GROUP BY file_path"
                 ).fetchall()
                 return {fp: count for fp, count in rows}
-            except Exception:
+            except Exception as exc:
+                log.warning("vector_store.file_chunk_counts failed: %s", exc)
                 return {}
 
     def clear(self) -> None:
@@ -294,8 +303,8 @@ class VectorStore:
                     self._conn.execute("DROP TABLE IF EXISTS chunks_vec")
                     self._dim = None
                 self._conn.commit()
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("vector_store.clear failed: %s", exc)
 
     async def get_by_id(self, chunk_id: str) -> Chunk | None:
         with self._lock:

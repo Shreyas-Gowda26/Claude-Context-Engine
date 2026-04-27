@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import os
 from pathlib import Path
 from urllib.parse import quote
 
@@ -21,6 +23,12 @@ from context_engine.storage.local_backend import LocalBackend
 # client (Sec-Fetch-Site absent). This blocks CSRF from a malicious local page
 # without breaking the dashboard's own fetch() calls or curl/tests.
 _MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# Optional bearer token for mutating endpoints. When CCE_DASHBOARD_TOKEN is set
+# in the environment, mutating requests must include `Authorization: Bearer
+# <token>` (the dashboard JS picks the token up from a `?token=` URL param so
+# users can paste a single URL into a browser). When the env var is unset the
+# dashboard remains open like before — the CSRF check above is the only guard.
+_DASHBOARD_TOKEN_ENV = "CCE_DASHBOARD_TOKEN"
 
 
 class ReindexRequest(BaseModel):
@@ -42,15 +50,33 @@ def create_app(config: Config, project_dir: Path) -> FastAPI:
 
     app = FastAPI(title="CCE Dashboard", docs_url=None, redoc_url=None)
 
+    expected_token = (os.environ.get(_DASHBOARD_TOKEN_ENV) or "").strip() or None
+
     @app.middleware("http")
-    async def csrf_protect(request: Request, call_next):
+    async def csrf_and_auth(request: Request, call_next):
         if request.method in _MUTATING_METHODS:
+            # CSRF: browser cross-origin requests are rejected. Non-browser
+            # clients (curl, tests) don't send Sec-Fetch-Site at all and are
+            # allowed to proceed to the auth check.
             sfs = request.headers.get("sec-fetch-site")
             if sfs is not None and sfs != "same-origin":
                 return JSONResponse(
                     {"error": "cross-origin requests not allowed"},
                     status_code=403,
                 )
+            # Auth: only enforced when CCE_DASHBOARD_TOKEN is set. Use
+            # constant-time comparison so a token-guessing attacker can't
+            # learn anything from response timing.
+            if expected_token is not None:
+                auth = request.headers.get("authorization", "")
+                presented = ""
+                if auth.startswith("Bearer "):
+                    presented = auth[len("Bearer "):]
+                if not presented or not hmac.compare_digest(presented, expected_token):
+                    return JSONResponse(
+                        {"error": "invalid or missing bearer token"},
+                        status_code=401,
+                    )
         return await call_next(request)
 
     backend = LocalBackend(base_path=str(storage_base))
