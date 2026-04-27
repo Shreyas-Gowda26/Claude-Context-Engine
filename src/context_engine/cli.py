@@ -728,6 +728,26 @@ def status(ctx: click.Context, output_json: bool, oneline: bool) -> None:
         else:
             lines.append(f"    {DOT} {dim('No usage recorded yet')}  {dim('run context_search via MCP')}")
 
+    # Embedding cache stats — surfaces how much the cache is actually saving.
+    cache_db = Path(config.storage_path) / Path.cwd().name / "embedding_cache.db"
+    if cache_db.exists():
+        try:
+            from context_engine.indexer.embedding_cache import EmbeddingCache
+            _cache = EmbeddingCache(cache_db)
+            try:
+                cache_size = _cache.size()
+            finally:
+                _cache.close()
+            db_size_mb = cache_db.stat().st_size / (1024 * 1024)
+            lines.append("")
+            lines.append(section("Embedding Cache"))
+            lines.append("")
+            lines.append(f"    {BULLET} {label('Cached embeddings')}  {value(f'{cache_size:,}')}")
+            lines.append(f"    {BULLET} {label('Cache size')}         {value(f'{db_size_mb:.1f} MB')}")
+        except Exception:
+            lines.append("")
+            lines.append(f"    {DOT} {dim('Error reading embedding cache')}")
+
     if verbose:
         storage_path = Path(config.storage_path)
         if storage_path.exists():
@@ -1737,6 +1757,11 @@ async def _run_index(
         detail_parts.append(f", pruned {warn(str(len(result.deleted_files)))} deleted")
     if result.skipped_files:
         detail_parts.append(f", skipped {dim(str(len(result.skipped_files)))} non-text")
+    # Surface embedding-cache reuse so users see the speedup directly.
+    if result.cache_hits > 0:
+        total_embeds = result.cache_hits + result.cache_misses
+        pct = int(result.cache_hits / total_embeds * 100)
+        detail_parts.append(f", {dim(f'{pct}% cache hit')}")
 
     click.echo(
         f"  {CHECK} " +

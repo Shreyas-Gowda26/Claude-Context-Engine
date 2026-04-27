@@ -18,6 +18,7 @@ import subprocess
 
 from context_engine.indexer.chunker import Chunker
 from context_engine.indexer.embedder import Embedder
+from context_engine.indexer.embedding_cache import EmbeddingCache
 from context_engine.indexer.git_indexer import index_commits
 from context_engine.indexer.manifest import Manifest
 from context_engine.models import GraphNode, GraphEdge, NodeType, EdgeType
@@ -156,6 +157,10 @@ class IndexResult:
     deleted_files: list[str] = field(default_factory=list)
     total_chunks: int = 0
     errors: list[str] = field(default_factory=list)
+    # Embedding-cache hit/miss counters from the most-recent embedder run.
+    # Surfaced in `cce index` output so users can see how much the cache saved.
+    cache_hits: int = 0
+    cache_misses: int = 0
 
 
 def _iter_project_files(
@@ -419,16 +424,37 @@ async def _run_indexing_locked(
     if all_chunks:
         # Embedding is where first-run model downloads happen; isolate failures
         # here so we don't write an index with empty vectors.
-        embedder = Embedder(model_name=config.embedding_model)
+        cache = EmbeddingCache(storage_base / "embedding_cache.db")
         try:
-            embedder.embed(all_chunks)
-        except Exception as exc:
-            msg = f"Embedding failed: {exc}"
-            result.errors.append(msg)
-            log.warning(msg, exc_info=exc)
-            # Don't ingest; the manifest was already updated in the loop but
-            # re-running with `full=True` will fix it.
-            return result
+            embedder = Embedder(model_name=config.embedding_model, cache=cache)
+            try:
+                embedder.embed(all_chunks)
+            except Exception as exc:
+                msg = f"Embedding failed: {exc}"
+                result.errors.append(msg)
+                log.warning(msg, exc_info=exc)
+                # Don't ingest; the manifest was already updated in the loop but
+                # re-running with `full=True` will fix it.
+                return result
+            result.cache_hits = cache.hits
+            result.cache_misses = cache.misses
+
+            # On a full re-index we know the complete set of live chunk
+            # hashes — opportunistically drop any cached embeddings whose
+            # source content is no longer present anywhere in the index.
+            # Without this the cache grows monotonically forever.
+            if full and not target_path:
+                try:
+                    live_hashes = {
+                        EmbeddingCache.content_hash(c.content) for c in all_chunks
+                    }
+                    pruned = cache.prune_orphans(live_hashes)
+                    if pruned and log_fn:
+                        log_fn(f"  [cache] pruned {pruned} orphan embedding(s)")
+                except Exception as exc:
+                    log.debug("Embedding cache prune skipped: %s", exc)
+        finally:
+            cache.close()
 
         try:
             await backend.ingest(all_chunks, all_nodes, all_edges)
