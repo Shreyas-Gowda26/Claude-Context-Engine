@@ -1,6 +1,6 @@
-# Claude Context Engine
+# Code Context Engine
 
-Claude Context Engine (CCE) is a local-first MCP server that gives Claude Code a persistent, searchable brain for your codebase. Instead of re-reading files every session, Claude queries an index — fetching only the chunks it actually needs.
+Code Context Engine (CCE) is a local-first MCP server that gives Claude Code a persistent, searchable brain for your codebase. Instead of re-reading files every session, Claude queries an index — fetching only the chunks it actually needs.
 
 ## Why CCE Exists
 

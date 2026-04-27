@@ -136,7 +136,7 @@ class ContextEngineMCP:
         self._compressor = compressor
         self._embedder = embedder
         self._config = config
-        self._server = Server("claude-context-engine")
+        self._server = Server("code-context-engine")
 
         project_name = Path.cwd().name
         self._project_name = project_name

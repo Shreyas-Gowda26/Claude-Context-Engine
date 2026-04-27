@@ -1,5 +1,5 @@
 # src/context_engine/cli.py
-"""CLI entry point for claude-context-engine."""
+"""CLI entry point for code-context-engine."""
 import asyncio
 import json
 import socket
@@ -70,7 +70,7 @@ _CCE_CLAUDE_MD_BLOCK = f"""\
 {_CCE_CLAUDE_MD_VERSION_TAG}
 ## Context Engine (CCE)
 
-This project uses Claude Context Engine for intelligent code retrieval and
+This project uses Code Context Engine for intelligent code retrieval and
 cross-session memory.
 
 ### Searching the codebase
@@ -217,7 +217,12 @@ def _show_welcome_banner(config) -> None:
     from importlib.metadata import version as pkg_version
 
     try:
-        ver = pkg_version("claude-context-engine")
+        # Try the new package name first; fall back to the legacy name so
+        # users on a pre-0.3.0 install still get a real version string.
+        try:
+            ver = pkg_version("code-context-engine")
+        except Exception:
+            ver = pkg_version("claude-context-engine")
     except Exception:
         ver = "?"
 
@@ -318,7 +323,7 @@ def _show_welcome_banner(config) -> None:
         return f"{D}│{R} {l} {D}│{R} {r} {D}│{R}"
 
     # ── Borders ──
-    title = f" Claude Context Engine v{ver} "
+    title = f" Code Context Engine v{ver} "
     dashes = W - 2 - len(title)
     ld = dashes // 2
     rd = dashes - ld
@@ -512,11 +517,11 @@ def _extract_existing_cce_block(content: str) -> str | None:
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(package_name="claude-context-engine")
+@click.version_option(package_name="code-context-engine")
 @click.option("--verbose", "-v", is_flag=True, help="Enable detailed logging output")
 @click.pass_context
 def main(ctx: click.Context, verbose: bool) -> None:
-    """claude-context-engine — Local context engine for Claude Code."""
+    """code-context-engine — Local context engine for AI coding assistants."""
     ctx.ensure_object(dict)
     project_path = Path.cwd() / PROJECT_CONFIG_NAME
     ctx.obj["config"] = load_config(project_path=project_path if project_path.exists() else None)
@@ -537,7 +542,7 @@ def init(ctx: click.Context) -> None:
 
     click.echo("")
     click.echo(
-        click.style("  Claude Context Engine", fg="cyan", bold=True) +
+        click.style("  Code Context Engine", fg="cyan", bold=True) +
         click.style(f"  ·  {project_dir.name}", fg="white", bold=True)
     )
     click.echo(_dim("  " + "─" * 44))
@@ -620,7 +625,12 @@ def status(ctx: click.Context, output_json: bool, oneline: bool) -> None:
 
     if oneline:
         try:
-            ver = pkg_version("claude-context-engine")
+            # Try the new package name first; fall back to the legacy name so
+            # users on a pre-0.3.0 install still get a real version string.
+            try:
+                ver = pkg_version("code-context-engine")
+            except Exception:
+                ver = pkg_version("claude-context-engine")
         except Exception:
             ver = "?"
         project_name = Path.cwd().name
@@ -1537,7 +1547,12 @@ def serve(ctx: click.Context, as_http: bool, host: str, port: int, project_dir: 
         return
     from importlib.metadata import version as pkg_version
     try:
-        ver = pkg_version("claude-context-engine")
+        # Try the new package name first; fall back to the legacy name so
+        # users on a pre-0.3.0 install still get a real version string.
+        try:
+            ver = pkg_version("code-context-engine")
+        except Exception:
+            ver = pkg_version("claude-context-engine")
     except Exception:
         ver = "unknown"
     click.echo(f"CCE v{ver} · Starting context engine MCP server...", err=True)

@@ -1,4 +1,4 @@
-# Contributing to Claude Context Engine
+# Contributing to Code Context Engine
 
 Thanks for your interest in contributing! This guide will help you get started.
 

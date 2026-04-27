@@ -18,7 +18,7 @@ All commands use colorful, structured output with line-by-line animation on TTY:
 Running `cce` with no subcommand shows a welcome banner with project status at a glance:
 
 ```
-╭─────────────────────────── Claude Context Engine v0.2.9 ────────────────────────────╮
+╭─────────────────────────── Code Context Engine v0.2.9 ────────────────────────────╮
 │                                                                                     │
 │                                     ⬡  C C E  ⬡                                     │
 │                                                                                     │
@@ -80,7 +80,7 @@ cce init
 **Expected output:**
 
 ```
-  Claude Context Engine  ·  my-project
+  Code Context Engine  ·  my-project
   ────────────────────────────────────────────
 
   Checking embedding model... downloading if needed (60 MB, first time only)... ready.

@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/fazleelahhee/Claude-Context-Engine/main/docs/logo.svg" alt="Claude Context Engine" width="160">
+  <img src="https://raw.githubusercontent.com/fazleelahhee/Claude-Context-Engine/main/docs/logo.svg" alt="Code Context Engine" width="160">
 </p>
 
-<h1 align="center">Claude Context Engine</h1>
+<h1 align="center">Code Context Engine</h1>
 
 <p align="center">
   <strong>Give Claude exactly the context it needs. Nothing more.</strong>
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/claude-context-engine/"><img src="https://img.shields.io/pypi/v/claude-context-engine?color=blue&label=PyPI" alt="PyPI"></a>
+  <a href="https://pypi.org/project/code-context-engine/"><img src="https://img.shields.io/pypi/v/code-context-engine?color=blue&label=PyPI" alt="PyPI"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  Claude Context Engine (CCE) is a local-first context engine for Claude Code. It indexes your repository, breaks code into meaningful chunks, and retrieves only the most relevant context for each task — so Claude spends fewer tokens re-reading code it has already seen.
+  Code Context Engine (CCE) is a local-first context engine for Claude Code. It indexes your repository, breaks code into meaningful chunks, and retrieves only the most relevant context for each task — so Claude spends fewer tokens re-reading code it has already seen.
 </p>
 
 ---
@@ -81,11 +81,11 @@ Without CCE:        Read payments.py + shipping.py ->  45k tokens
 ### 1. Install
 
 ```bash
-uv tool install claude-context-engine   # recommended — isolated, no virtualenv needed
+uv tool install code-context-engine   # recommended — isolated, no virtualenv needed
 # or
-pipx install claude-context-engine
+pipx install code-context-engine
 # or
-pip install claude-context-engine       # inside a virtualenv
+pip install code-context-engine       # inside a virtualenv
 ```
 
 ### 2. Index your project
@@ -98,7 +98,7 @@ cce init
 `cce init` handles everything in one step:
 
 ```
-  Claude Context Engine  ·  my-project
+  Code Context Engine  ·  my-project
   ────────────────────────────────────────────
 
   Checking embedding model... downloading if needed (60 MB, first time only)... ready.
@@ -121,7 +121,7 @@ cce init
 ### 3. Run `cce` to verify
 
 ```
-╭─────────────────────────── Claude Context Engine v0.3.0 ────────────────────────────╮
+╭─────────────────────────── Code Context Engine v0.3.0 ────────────────────────────╮
 │                                                                                     │
 │                                     ⬡  C C E  ⬡                                     │
 │                                                                                     │

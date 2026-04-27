@@ -21,7 +21,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "aiohttp is required for HTTP serve mode. "
-        "Install with: pip install 'claude-context-engine[http]'"
+        "Install with: pip install 'code-context-engine[http]'"
     ) from e
 
 

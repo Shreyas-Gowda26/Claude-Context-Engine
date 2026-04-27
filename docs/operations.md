@@ -20,7 +20,7 @@ Drop this at `~/.config/systemd/user/cce-dashboard.service`:
 
 ```ini
 [Unit]
-Description=Claude Context Engine — Dashboard
+Description=Code Context Engine — Dashboard
 After=network-online.target
 
 [Service]

@@ -248,7 +248,7 @@ def ensure_gitignore(project_dir: str) -> None:
     if not additions:
         return
 
-    block = "\n\n# CCE (claude-context-engine)\n" + "\n".join(additions) + "\n"
+    block = "\n\n# CCE (code-context-engine)\n" + "\n".join(additions) + "\n"
     gitignore.write_text(content.rstrip() + block)
 
 

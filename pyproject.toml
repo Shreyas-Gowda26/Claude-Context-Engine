@@ -1,7 +1,7 @@
 [project]
-name = "claude-context-engine"
+name = "code-context-engine"
 version = "0.3.0"
-description = "Local context engine for Claude Code — indexes projects, compresses context, reduces token cost"
+description = "Local context engine for AI coding assistants — indexes projects, compresses context, reduces token cost"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "MIT"
 authors = [
@@ -51,8 +51,13 @@ dev = [
 http = ["aiohttp>=3.9"]
 
 [project.scripts]
-claude-context-engine = "context_engine.cli:main"
+# `cce` is the canonical short name. `code-context-engine` is the new long
+# alias; `claude-context-engine` is preserved for back-compat with the
+# pre-0.3.0 install path so existing scripts and docs keep working after
+# upgrading from the previous package name.
 cce = "context_engine.cli:main"
+code-context-engine = "context_engine.cli:main"
+claude-context-engine = "context_engine.cli:main"
 cce-savings = "context_engine.cli:savings_shortcut"
 
 [build-system]
