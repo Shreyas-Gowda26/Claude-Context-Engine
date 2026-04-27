@@ -267,10 +267,20 @@ async def _run_indexing_locked(
     all_chunks: list = []
     all_nodes: list[GraphNode] = []
     all_edges: list[GraphEdge] = []
+    files_to_replace: list[str] = []
 
-    # Read files asynchronously — overlap I/O with processing.
+    # Read + chunk asynchronously — both are wrapped in asyncio.to_thread so
+    # the I/O reads (kernel) and the chunker work (CPU-bound tree-sitter)
+    # both overlap across files in a batch instead of executing serially.
     async def _read_file(fp: Path) -> tuple[Path, str | None]:
         return fp, await asyncio.to_thread(_safe_read, fp)
+
+    async def _chunk_file(rel_path: str, content: str, language: str):
+        """Run the tree-sitter chunker off the event loop. Returns chunks +
+        imports, or (None, None) on failure (already logged by caller)."""
+        return await asyncio.to_thread(
+            chunker.chunk_with_imports, content, rel_path, language
+        )
 
     # Process files in batches to pipeline I/O with chunking.
     _BATCH = 50
@@ -281,6 +291,10 @@ async def _run_indexing_locked(
         read_tasks = [_read_file(fp) for fp in batch_paths]
         read_results = await asyncio.gather(*read_tasks)
 
+        # First pass: hash + manifest check, decide which files actually need
+        # re-chunking. This is cheap and synchronous; doing it upfront lets us
+        # skip the chunker for unchanged files.
+        to_chunk: list[tuple[Path, str, str, str, str]] = []  # (file_path, rel_path, content, content_hash, language)
         for file_path, content in read_results:
             rel_path = str(file_path.relative_to(project_dir))
             current_rel_paths.add(rel_path)
@@ -298,66 +312,86 @@ async def _run_indexing_locked(
                 continue
 
             language = _LANGUAGE_MAP.get(file_path.suffix, "plaintext")
-            try:
-                chunks, imported_modules = chunker.chunk_with_imports(
-                    content, file_path=rel_path, language=language
+            to_chunk.append((file_path, rel_path, content, content_hash, language))
+
+        # Chunk all changed files in this batch in parallel. tree-sitter is
+        # a C extension that releases the GIL during parsing, so threads do
+        # give real concurrency for chunking.
+        if to_chunk:
+            chunk_tasks = [
+                _chunk_file(rel_path, content, language)
+                for (_, rel_path, content, _, language) in to_chunk
+            ]
+            chunk_results = await asyncio.gather(*chunk_tasks, return_exceptions=True)
+
+            for (file_path, rel_path, content, content_hash, language), chunk_outcome in zip(
+                to_chunk, chunk_results
+            ):
+                if isinstance(chunk_outcome, Exception):
+                    result.errors.append(f"Chunking failed for {rel_path}: {chunk_outcome}")
+                    log.warning("Chunking failed for %s", rel_path, exc_info=chunk_outcome)
+                    continue
+                chunks, imported_modules = chunk_outcome
+
+                # Defer the actual store delete to a single batched call below.
+                files_to_replace.append(rel_path)
+
+                file_node = GraphNode(
+                    id=f"file_{rel_path}",
+                    node_type=NodeType.FILE,
+                    name=file_path.name,
+                    file_path=rel_path,
                 )
-            except Exception as exc:  # pragma: no cover - defensive
-                result.errors.append(f"Chunking failed for {rel_path}: {exc}")
-                log.warning("Chunking failed for %s", rel_path, exc_info=exc)
-                continue
+                all_nodes.append(file_node)
 
-            await backend.delete_by_file(rel_path)
-
-            file_node = GraphNode(
-                id=f"file_{rel_path}",
-                node_type=NodeType.FILE,
-                name=file_path.name,
-                file_path=rel_path,
-            )
-            all_nodes.append(file_node)
-
-            for module in imported_modules:
-                all_edges.append(
-                    GraphEdge(
-                        source_id=file_node.id,
-                        target_id=f"module_{module}",
-                        edge_type=EdgeType.IMPORTS,
+                for module in imported_modules:
+                    all_edges.append(
+                        GraphEdge(
+                            source_id=file_node.id,
+                            target_id=f"module_{module}",
+                            edge_type=EdgeType.IMPORTS,
+                        )
                     )
-                )
 
-            for chunk in chunks:
-                node_type = (
-                    NodeType.FUNCTION
-                    if chunk.chunk_type.value == "function"
-                    else NodeType.CLASS
-                )
-                node_name = (
-                    chunk.content.split("(")[0].split(":")[-1].strip()
-                    if "(" in chunk.content
-                    else chunk.id
-                )
-                all_nodes.append(
-                    GraphNode(
-                        id=chunk.id,
-                        node_type=node_type,
-                        name=node_name,
-                        file_path=rel_path,
+                for chunk in chunks:
+                    node_type = (
+                        NodeType.FUNCTION
+                        if chunk.chunk_type.value == "function"
+                        else NodeType.CLASS
                     )
-                )
-                all_edges.append(
-                    GraphEdge(
-                        source_id=file_node.id,
-                        target_id=chunk.id,
-                        edge_type=EdgeType.DEFINES,
+                    node_name = (
+                        chunk.content.split("(")[0].split(":")[-1].strip()
+                        if "(" in chunk.content
+                        else chunk.id
                     )
-                )
-            all_chunks.extend(chunks)
-            manifest.update(rel_path, content_hash)
-            result.indexed_files.append(rel_path)
+                    all_nodes.append(
+                        GraphNode(
+                            id=chunk.id,
+                            node_type=node_type,
+                            name=node_name,
+                            file_path=rel_path,
+                        )
+                    )
+                    all_edges.append(
+                        GraphEdge(
+                            source_id=file_node.id,
+                            target_id=chunk.id,
+                            edge_type=EdgeType.DEFINES,
+                        )
+                    )
+                all_chunks.extend(chunks)
+                manifest.update(rel_path, content_hash)
+                result.indexed_files.append(rel_path)
 
         if progress_fn:
             progress_fn(min(batch_start + len(batch_paths), len(file_iter)), len(file_iter))
+
+    # Single batched delete for every file we're about to re-ingest. The
+    # previous code awaited backend.delete_by_file() inside the per-file loop,
+    # serialising the loop on small SQLite roundtrips — this collapses all of
+    # them into one delete-IN per store.
+    if files_to_replace:
+        await backend.delete_by_files(files_to_replace)
 
     # Index git history on full runs (skip for non-git projects)
     _is_git = (Path(project_dir) / ".git").is_dir()
@@ -410,10 +444,15 @@ async def _run_indexing_locked(
     # Only meaningful for project-wide runs; skip when a single path was targeted.
     if not target_path:
         previous_rel_paths = set(manifest._entries.keys())  # noqa: SLF001
-        removed = previous_rel_paths - current_rel_paths
+        removed = list(previous_rel_paths - current_rel_paths)
+        if removed:
+            try:
+                await backend.delete_by_files(removed)
+            except Exception as exc:  # pragma: no cover - defensive
+                result.errors.append(f"Failed to prune deleted files: {exc}")
+                removed = []
         for deleted in removed:
             try:
-                await backend.delete_by_file(deleted)
                 manifest.remove(deleted)
                 result.deleted_files.append(deleted)
                 if log_fn:

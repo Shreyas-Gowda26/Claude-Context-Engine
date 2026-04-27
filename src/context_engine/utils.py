@@ -2,7 +2,37 @@
 import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
+
+
+def atomic_write_text(path: Path, data: str) -> None:
+    """Write `data` to `path` via a tempfile + os.replace.
+
+    A plain `path.write_text(data)` truncates the target before writing, so a
+    crash mid-write leaves a zero-byte or partial file. The next load reads
+    that as `{}` and silently loses everything. The tempfile-then-rename
+    pattern keeps the existing file intact until the new one is fully on
+    disk; the rename is atomic on POSIX.
+
+    Creates the parent directory if it doesn't exist (or was deleted by a
+    concurrent process between an earlier mkdir and this call).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(data)
+        os.replace(tmp_name, path)
+    except Exception:
+        # Best-effort cleanup if anything went wrong before the rename.
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def resolve_cce_binary() -> str:

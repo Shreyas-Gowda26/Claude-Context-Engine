@@ -1,12 +1,12 @@
 """Session history capture — records decisions, code areas, and Q&A for future recall."""
 import json
 import logging
-import os
-import tempfile
 import threading
 import time
 import uuid
 from pathlib import Path
+
+from context_engine.utils import atomic_write_text as _atomic_write_text
 
 log = logging.getLogger(__name__)
 
@@ -17,25 +17,6 @@ log = logging.getLogger(__name__)
 _PRUNE_THRESHOLD = 100
 _PRUNE_KEEP = 50
 _DECISIONS_LOG_NAME = "decisions_log.json"
-
-
-def _atomic_write_text(path: Path, data: str) -> None:
-    """Atomic write via tempfile + os.replace. See mcp_server._atomic_write_text
-    for the full rationale; duplicated here to avoid an import cycle."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
-    )
-    try:
-        with os.fdopen(fd, "w") as fh:
-            fh.write(data)
-        os.replace(tmp_name, path)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
-        raise
 
 class SessionCapture:
     """Thread-safe session log. All `_active` access goes through `_lock` so
@@ -166,10 +147,51 @@ class SessionCapture:
         session id) survive consolidation. code_areas and questions in old
         sessions are dropped — they were heuristic auto-captures and the
         signal-to-noise drops fast as they age.
+
+        Uses an fcntl advisory lock on `.prune.lock` in the sessions dir so
+        two processes can't race the read-append-write on decisions_log.json
+        (last-write-wins would clobber one process's appended decisions).
+        On Windows fcntl is unavailable; we fall through without a lock and
+        accept the rare race — Windows isn't a supported deploy target today.
         """
         sessions_path = Path(self._sessions_dir)
+        sessions_path.mkdir(parents=True, exist_ok=True)
+        lock_path = sessions_path / ".prune.lock"
+        # Acquire an exclusive flock; fall back to no-op on platforms where
+        # fcntl isn't available so the prune still runs (just unlocked).
+        lock_fh = None
+        try:
+            import fcntl  # POSIX only; ImportError on Windows
+            lock_fh = open(lock_path, "w")
+            try:
+                fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                # Another process is pruning right now — let it finish.
+                lock_fh.close()
+                return {"pruned": 0, "kept": -1, "reason": "another prune in progress"}
+        except ImportError:
+            lock_fh = None
+
+        try:
+            return self._prune_locked(sessions_path, threshold, keep)
+        finally:
+            if lock_fh is not None:
+                try:
+                    import fcntl
+                    fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+                except Exception:
+                    pass
+                lock_fh.close()
+
+    def _prune_locked(
+        self,
+        sessions_path: Path,
+        threshold: int,
+        keep: int,
+    ) -> dict:
+        """The actual prune work. Caller holds the cross-process flock."""
         files = sorted(
-            sessions_path.glob("*.json"),
+            (f for f in sessions_path.glob("*.json") if f.name != _DECISIONS_LOG_NAME),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )

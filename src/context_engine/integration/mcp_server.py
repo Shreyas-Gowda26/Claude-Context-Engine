@@ -1,9 +1,9 @@
 """MCP server exposing context engine tools to Claude Code."""
 import json
 import logging
-import os
-import tempfile
 from pathlib import Path
+
+from context_engine.utils import atomic_write_text as _atomic_write_text
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
@@ -41,35 +41,18 @@ def _count_tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
 
 
-def _atomic_write_text(path: Path, data: str) -> None:
-    """Write `data` to `path` via a tempfile + os.replace.
-
-    A plain `path.write_text(data)` truncates the target before writing, so a
-    crash mid-write leaves a zero-byte or partial file. The next load reads
-    that as `{}` and silently loses everything. The tempfile-then-rename
-    pattern keeps the existing file intact until the new one is fully on
-    disk; the rename is atomic on POSIX.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
-    )
-    try:
-        with os.fdopen(fd, "w") as fh:
-            fh.write(data)
-        os.replace(tmp_name, path)
-    except Exception:
-        # Best-effort cleanup if anything went wrong before the rename.
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
-        raise
-
-
 def _cosine_sim(a, b) -> float:
     """Cosine similarity between two equal-length numeric sequences. Returns 0
-    on degenerate input (zero norm) instead of NaN."""
+    on degenerate input (zero norm) instead of NaN.
+
+    Length mismatch returns 0 and logs at debug — the embedder always returns
+    fixed-dimension vectors, so a mismatch means something is wrong upstream
+    (model swap mid-process, corrupted cached vector). We prefer "no match"
+    over a silently truncated similarity that zip()'d to the shorter length.
+    """
+    if len(a) != len(b):
+        log.debug("_cosine_sim length mismatch: %d vs %d", len(a), len(b))
+        return 0.0
     dot = 0.0
     na = 0.0
     nb = 0.0

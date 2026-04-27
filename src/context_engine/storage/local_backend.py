@@ -79,6 +79,18 @@ class LocalBackend:
             self._graph_store.delete_by_file(file_path),
         )
 
+    async def delete_by_files(self, file_paths: list[str]) -> None:
+        """Batched cousin of delete_by_file. Pipeline calls this once per
+        re-index batch instead of awaiting per-file deletes serially. The
+        three stores still run in parallel via asyncio.gather."""
+        if not file_paths:
+            return
+        await asyncio.gather(
+            self._vector_store.delete_by_files(file_paths),
+            self._fts_store.delete_by_files(file_paths),
+            self._graph_store.delete_by_files(file_paths),
+        )
+
     def count_chunks(self) -> int:
         return self._vector_store.count()
 

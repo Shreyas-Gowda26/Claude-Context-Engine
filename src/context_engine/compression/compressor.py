@@ -1,4 +1,5 @@
 """Compression pipeline — groups chunks, summarizes via LLM, falls back to truncation."""
+import asyncio
 import logging
 import time
 from context_engine.models import Chunk, ChunkType
@@ -45,14 +46,23 @@ class Compressor:
             self._cache = None
         self._ollama_available: bool | None = None
         self._ollama_probed_at: float = 0.0
+        # Single-flight the probe so concurrent compress() calls don't all
+        # fire it at once when the cached value is stale.
+        self._probe_lock = asyncio.Lock()
 
     async def _is_ollama_available(self) -> bool:
         now = time.monotonic()
         if self._ollama_available is not None and now - self._ollama_probed_at < _OLLAMA_PROBE_TTL:
             return self._ollama_available
-        self._ollama_available = await self._client.is_available()
-        self._ollama_probed_at = now
-        return self._ollama_available
+        async with self._probe_lock:
+            # Re-check inside the lock — another coroutine may have refreshed
+            # the cache while we were waiting.
+            now = time.monotonic()
+            if self._ollama_available is not None and now - self._ollama_probed_at < _OLLAMA_PROBE_TTL:
+                return self._ollama_available
+            self._ollama_available = await self._client.is_available()
+            self._ollama_probed_at = now
+            return self._ollama_available
 
     async def compress(self, chunks: list[Chunk], level: str = "standard") -> list[Chunk]:
         ollama_available = await self._is_ollama_available()

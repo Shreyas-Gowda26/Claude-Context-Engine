@@ -137,19 +137,27 @@ class GraphStore:
         return [_row_to_node(row) for row in cur.fetchall()]
 
     def _sync_delete_by_file(self, file_path: str) -> None:
+        self._sync_delete_by_files([file_path])
+
+    def _sync_delete_by_files(self, file_paths: list[str]) -> None:
+        if not file_paths:
+            return
         cur = self._conn.cursor()
-        # Collect node ids belonging to this file
-        cur.execute("SELECT id FROM nodes WHERE file_path = ?", (file_path,))
+        file_placeholders = ",".join("?" * len(file_paths))
+        cur.execute(
+            f"SELECT id FROM nodes WHERE file_path IN ({file_placeholders})",
+            file_paths,
+        )
         node_ids = [row[0] for row in cur.fetchall()]
         if node_ids:
-            placeholders = ",".join("?" * len(node_ids))
+            id_placeholders = ",".join("?" * len(node_ids))
             cur.execute(
-                f"DELETE FROM edges WHERE source_id IN ({placeholders}) "
-                f"OR target_id IN ({placeholders})",
+                f"DELETE FROM edges WHERE source_id IN ({id_placeholders}) "
+                f"OR target_id IN ({id_placeholders})",
                 node_ids + node_ids,
             )
             cur.execute(
-                f"DELETE FROM nodes WHERE id IN ({placeholders})",
+                f"DELETE FROM nodes WHERE id IN ({id_placeholders})",
                 node_ids,
             )
         self._conn.commit()
@@ -182,6 +190,9 @@ class GraphStore:
 
     async def delete_by_file(self, file_path: str) -> None:
         await asyncio.to_thread(self._sync_delete_by_file, file_path)
+
+    async def delete_by_files(self, file_paths: list[str]) -> None:
+        await asyncio.to_thread(self._sync_delete_by_files, file_paths)
 
     def clear(self) -> None:
         self._conn.execute("DELETE FROM edges")

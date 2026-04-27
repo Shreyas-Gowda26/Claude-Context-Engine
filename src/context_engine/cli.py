@@ -58,8 +58,16 @@ def _configure_mcp(project_dir: Path) -> bool:
 
 
 _CCE_CLAUDE_MD_MARKER = "## Context Engine (CCE)"
+# Version stamp embedded as an HTML comment so it doesn't render in the final
+# Markdown but lets `_ensure_claude_md` detect when the installed block is
+# stale and needs replacing. Bump whenever _CCE_CLAUDE_MD_BLOCK changes.
+_CCE_CLAUDE_MD_VERSION = "2"
+_CCE_CLAUDE_MD_VERSION_TAG = f"<!-- cce-block-version: {_CCE_CLAUDE_MD_VERSION} -->"
+_CCE_CLAUDE_MD_VERSION_PREFIX = "<!-- cce-block-version: "
+_CCE_CLAUDE_MD_END_MARKER = "<!-- /cce-block -->"
 
-_CCE_CLAUDE_MD_BLOCK = """\
+_CCE_CLAUDE_MD_BLOCK = f"""\
+{_CCE_CLAUDE_MD_VERSION_TAG}
 ## Context Engine (CCE)
 
 This project uses Claude Context Engine for intelligent code retrieval and
@@ -132,6 +140,7 @@ fragments over full sentences in explanations. No trailing summaries of what
 you just did. One sentence if it fits.
 
 Code blocks, file paths, commands, and error messages are always written in full.
+{_CCE_CLAUDE_MD_END_MARKER}
 """
 
 
@@ -435,18 +444,71 @@ def _preflight_check(config) -> None:
 
 
 def _ensure_claude_md(project_dir: Path) -> None:
-    """Add CCE instructions to CLAUDE.md if not already present."""
+    """Add or upgrade the CCE instructions block in CLAUDE.md.
+
+    Three states the file can be in:
+      - Missing: write the block.
+      - Has the current version (matching version tag): no-op.
+      - Has an older version OR a pre-versioned block: replace just the CCE
+        block, preserving everything else the user wrote in CLAUDE.md.
+
+    Without the upgrade path, projects installed with v0.2.x kept the old
+    instructions forever — Claude never learned to call record_decision /
+    session_recall and the cross-session memory loop stayed broken.
+    """
     claude_md = project_dir / "CLAUDE.md"
-    if claude_md.exists():
-        existing = claude_md.read_text()
-        if _CCE_CLAUDE_MD_MARKER in existing:
-            return  # already has CCE block
-        new_content = existing.rstrip() + "\n\n" + _CCE_CLAUDE_MD_BLOCK
-        claude_md.write_text(new_content)
-        _ok("CLAUDE.md updated with CCE instructions")
-    else:
+    if not claude_md.exists():
         claude_md.write_text(_CCE_CLAUDE_MD_BLOCK)
         _ok("CLAUDE.md created with CCE instructions")
+        return
+
+    existing = claude_md.read_text()
+
+    # Already on the current version — nothing to do.
+    if _CCE_CLAUDE_MD_VERSION_TAG in existing:
+        return
+
+    # An older versioned block OR a pre-versioned block (just the marker).
+    # Replace it in place so any custom content the user added around it
+    # survives the upgrade.
+    old_block = _extract_existing_cce_block(existing)
+    if old_block is not None:
+        new_content = existing.replace(old_block, _CCE_CLAUDE_MD_BLOCK.rstrip(), 1)
+        claude_md.write_text(new_content)
+        _ok("CLAUDE.md upgraded to current CCE instructions")
+        return
+
+    # No CCE block detected — append.
+    new_content = existing.rstrip() + "\n\n" + _CCE_CLAUDE_MD_BLOCK
+    claude_md.write_text(new_content)
+    _ok("CLAUDE.md updated with CCE instructions")
+
+
+def _extract_existing_cce_block(content: str) -> str | None:
+    """Return the existing CCE block text from a CLAUDE.md, or None.
+
+    Recognises both the new versioned form (version tag → end marker) and
+    the legacy unmarked form (the `## Context Engine (CCE)` heading through
+    end-of-file). Returns the slice without trailing whitespace so the
+    caller can do an exact string-replace.
+    """
+    # New format: bounded by version tag and end marker.
+    if _CCE_CLAUDE_MD_VERSION_PREFIX in content and _CCE_CLAUDE_MD_END_MARKER in content:
+        start = content.find(_CCE_CLAUDE_MD_VERSION_PREFIX)
+        end_pos = content.find(_CCE_CLAUDE_MD_END_MARKER, start)
+        if start != -1 and end_pos != -1:
+            end_pos += len(_CCE_CLAUDE_MD_END_MARKER)
+            return content[start:end_pos].rstrip()
+
+    # Legacy format: the marker heading through the next top-level heading
+    # or end of file. Conservative — if the user put their own H2 right
+    # after the CCE block, we stop there and don't eat user content.
+    if _CCE_CLAUDE_MD_MARKER not in content:
+        return None
+    start = content.find(_CCE_CLAUDE_MD_MARKER)
+    after_start = content.find("\n## ", start + len(_CCE_CLAUDE_MD_MARKER))
+    end = after_start if after_start != -1 else len(content)
+    return content[start:end].rstrip()
 
 
 @click.group(invoke_without_command=True)

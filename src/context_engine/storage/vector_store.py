@@ -224,22 +224,34 @@ class VectorStore:
         return [self._row_to_chunk(row[:7], distance=row[7]) for row in rows]
 
     async def delete_by_file(self, file_path: str) -> None:
+        await self.delete_by_files([file_path])
+
+    async def delete_by_files(self, file_paths: list[str]) -> None:
+        """Batched delete. Pipeline calls this once per re-index batch instead
+        of awaiting per-file deletes serially, which previously bottlenecked
+        the indexing loop on small SQLite roundtrips."""
+        if not file_paths:
+            return
         with self._lock:
+            placeholders = ",".join("?" * len(file_paths))
             if self._dim is not None:
                 self._conn.execute(
-                    "DELETE FROM chunks_vec "
-                    "WHERE rowid IN (SELECT rowid FROM chunks WHERE file_path = ?)",
-                    (file_path,),
+                    f"DELETE FROM chunks_vec "
+                    f"WHERE rowid IN (SELECT rowid FROM chunks WHERE file_path IN ({placeholders}))",
+                    file_paths,
                 )
-            # Drop cached summaries for any chunks belonging to this file
+            # Drop cached summaries for any chunks belonging to these files
             # before the chunks themselves go away — otherwise stale summaries
             # would survive a re-index.
             self._conn.execute(
-                "DELETE FROM chunk_compressions "
-                "WHERE chunk_id IN (SELECT id FROM chunks WHERE file_path = ?)",
-                (file_path,),
+                f"DELETE FROM chunk_compressions "
+                f"WHERE chunk_id IN (SELECT id FROM chunks WHERE file_path IN ({placeholders}))",
+                file_paths,
             )
-            self._conn.execute("DELETE FROM chunks WHERE file_path = ?", (file_path,))
+            self._conn.execute(
+                f"DELETE FROM chunks WHERE file_path IN ({placeholders})",
+                file_paths,
+            )
             self._conn.commit()
 
     def get_cached_compression(self, chunk_id: str, level: str) -> str | None:
