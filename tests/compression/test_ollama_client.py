@@ -1,6 +1,11 @@
 import pytest
 from context_engine.compression.ollama_client import OllamaClient
 
+# Pin every test in this module to the "ollama" xdist group so they share a
+# single worker. Without this, parallel runs make 4 workers race on phi3:mini
+# and the 30s per-call timeout flakes.
+pytestmark = pytest.mark.xdist_group(name="ollama")
+
 
 @pytest.fixture
 def client():

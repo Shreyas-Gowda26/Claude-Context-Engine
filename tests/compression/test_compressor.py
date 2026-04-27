@@ -2,6 +2,10 @@ import pytest
 from context_engine.models import Chunk, ChunkType
 from context_engine.compression.compressor import Compressor
 
+# Same xdist group as test_ollama_client so all real-Ollama tests run in one
+# worker and don't race the per-call timeout.
+pytestmark = pytest.mark.xdist_group(name="ollama")
+
 @pytest.fixture
 def compressor():
     return Compressor(ollama_url="http://localhost:11434", model="phi3:mini")
